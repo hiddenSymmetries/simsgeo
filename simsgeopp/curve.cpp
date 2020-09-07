@@ -36,7 +36,7 @@ class Curve {
             return (loc->second).data;
         }
 
-    // We'd really like these to be protected, but I'm not sure that play well
+    // We'd really like these to be protected, but I'm not sure that plays well
     // with accessing them from python child classes. 
     public://protected:
         int numquadpoints;
