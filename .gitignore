@@ -1,0 +1,4 @@
+build/
+simsgeo/__pycache__/
+.python-version
+*.so
