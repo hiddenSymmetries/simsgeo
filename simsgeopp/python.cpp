@@ -7,6 +7,8 @@ typedef xt::pyarray<double> PyArray;
 
 #include "curve.cpp"
 #include "pycurve.cpp"
+
+#include "fouriercurve.cpp"
 typedef FourierCurve<PyArray> PyFourierCurve;
 
 namespace py = pybind11;

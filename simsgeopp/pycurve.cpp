@@ -1,3 +1,6 @@
+#pragma once
+
+#include "curve.cpp"
 #include "xtensor-python/pyarray.hpp"     // Numpy bindings
 typedef xt::pyarray<double> PyArray;
 
@@ -9,7 +12,7 @@ class PyCurve : public Curve<PyArray> {
             PYBIND11_OVERLOAD_PURE(int, Curve, num_dofs);
         }
 
-        virtual void set_dofs(vector<double>& _dofs) override {
+        virtual void set_dofs(const vector<double>& _dofs) override {
             PYBIND11_OVERLOAD_PURE(void, Curve, set_dofs, _dofs);
         }
 
