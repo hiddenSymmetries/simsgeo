@@ -42,11 +42,9 @@ class Curve {
         Array& check_the_cache(string key, vector<int> dims, std::function<void(Array&)> impl){
             auto loc = cache.find(key);
             if(loc == cache.end()){ // Key not found --> allocate array
-                std::cout << "Allocate memory for '" + key + "'" << std::endl;
                 loc = cache.insert(std::make_pair(key, CachedArray<Array>(xt::zeros<double>(dims)))).first; 
             }
             if(!((loc->second).status)){ // needs recomputing
-                std::cout << "Call implementation for '" + key + "'" << std::endl;
                 impl((loc->second).data);
                 (loc->second).status = true;
             }

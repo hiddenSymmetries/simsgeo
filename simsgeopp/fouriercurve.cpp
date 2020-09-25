@@ -140,5 +140,31 @@ class FourierCurve : public Curve<Array> {
             }
         }
 
+        Array dgamma_by_dcoeff_vjp(Array& v) {
+            Array res = xt::zeros<double>({num_dofs()});
+            for (int k = 0; k < numquadpoints; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    res(i*(2*order+1)) += v(k, i);
+                    for (int j = 1; j < order+1; ++j) {
+                        res(i*(2*order+1) + 2*j-1) += sin(2*M_PI*j*quadpoints[k]) * v(k, i);
+                        res(i*(2*order+1) + 2*j) += cos(2*M_PI*j*quadpoints[k]) * v(k, i);
+                    }
+                }
+            }
+            return res;
+        }
+
+        Array dgammadash_by_dcoeff_vjp(Array& v) {
+            Array res = xt::zeros<double>({num_dofs()});
+            for (int k = 0; k < numquadpoints; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 1; j < order+1; ++j) {
+                        res(i*(2*order+1) + 2*j-1) += +2*M_PI*j*cos(2*M_PI*j*quadpoints[k]) * v(k, i);
+                        res(i*(2*order+1) + 2*j) += -2*M_PI*j*sin(2*M_PI*j*quadpoints[k]) * v(k, i);
+                    }
+                }
+            }
+            return res;
+        }
 };
 

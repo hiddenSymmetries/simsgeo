@@ -1,6 +1,7 @@
-from jax import grad, vjp, jit
+from jax import grad, vjp
 import jax.numpy as jnp
 import numpy as np
+from .jit import jit
 
 @jit
 def curve_length_pure(gammadash):
@@ -66,3 +67,69 @@ class LpCurveTorsion():
         grad0 = self.thisgrad0(self.curve.torsion(), self.curve.gammadash())
         grad1 = self.thisgrad1(self.curve.torsion(), self.curve.gammadash())
         return self.curve.dtorsion_by_dcoeff_vjp(grad0) + self.curve.dgammadash_by_dcoeff_vjp(grad1)
+
+def distance_pure(gamma1, l1, gamma2, l2, minimum_distance):
+    dists = jnp.sqrt(jnp.sum((gamma1[:, None, :] - gamma2[None, :, :])**2, axis=2))
+    alen = jnp.linalg.norm(l1, axis=1) * jnp.linalg.norm(l2, axis=1)
+    return jnp.sum(alen * jnp.maximum(minimum_distance-dists, 0)**2)/(gamma1.shape[0]*gamma2.shape[0])
+
+class MinimumDistance():
+
+    def __init__(self, curves, minimum_distance):
+        self.curves = curves
+        self.minimum_distance = minimum_distance
+        
+        self.J_jax = jit(lambda gamma1, l1, gamma2, l2: distance_pure(gamma1, l1, gamma2, l2, minimum_distance))
+        self.thisgrad0 = jit(lambda gamma1, l1, gamma2, l2: grad(self.J_jax, argnums=0)(gamma1, l1, gamma2, l2))
+        self.thisgrad1 = jit(lambda gamma1, l1, gamma2, l2: grad(self.J_jax, argnums=1)(gamma1, l1, gamma2, l2))
+        self.thisgrad2 = jit(lambda gamma1, l1, gamma2, l2: grad(self.J_jax, argnums=2)(gamma1, l1, gamma2, l2))
+        self.thisgrad3 = jit(lambda gamma1, l1, gamma2, l2: grad(self.J_jax, argnums=3)(gamma1, l1, gamma2, l2))
+
+    def J(self):
+        res = 0
+        for i in range(len(self.curves)):
+            gamma1 = self.curves[i].gamma()
+            l1 = self.curves[i].gammadash()
+            for j in range(i):
+                gamma2 = self.curves[j].gamma()
+                l2 = self.curves[j].gammadash()
+                res += self.J_jax(gamma1, l1, gamma2, l2)
+        return res
+
+    def dJ(self):
+        dgamma_by_dcoeff_vjp_vecs = [None for c in self.curves]
+        dgammadash_by_dcoeff_vjp_vecs = [None for c in self.curves]
+        for i in range(len(self.curves)):
+            gamma1 = self.curves[i].gamma()
+            l1 = self.curves[i].gammadash()
+            for j in range(i):
+                gamma2 = self.curves[j].gamma()
+                l2 = self.curves[j].gammadash()
+
+
+                temp = self.thisgrad0(gamma1, l1, gamma2, l2)
+                if dgamma_by_dcoeff_vjp_vecs[i] is None:
+                    dgamma_by_dcoeff_vjp_vecs[i] = temp
+                else:
+                    dgamma_by_dcoeff_vjp_vecs[i] += temp
+
+                temp = self.thisgrad1(gamma1, l1, gamma2, l2)
+                if dgammadash_by_dcoeff_vjp_vecs[i] is None:
+                    dgammadash_by_dcoeff_vjp_vecs[i] = temp
+                else:
+                    dgammadash_by_dcoeff_vjp_vecs[i] += temp
+
+
+                temp = self.thisgrad2(gamma1, l1, gamma2, l2)
+                if dgamma_by_dcoeff_vjp_vecs[j] is None:
+                    dgamma_by_dcoeff_vjp_vecs[j] = temp
+                else:
+                    dgamma_by_dcoeff_vjp_vecs[j] += temp
+                temp = self.thisgrad3(gamma1, l1, gamma2, l2)
+                if dgammadash_by_dcoeff_vjp_vecs[j] is None:
+                    dgammadash_by_dcoeff_vjp_vecs[j] = temp
+                else:
+                    dgammadash_by_dcoeff_vjp_vecs[j] += temp
+
+        res = [self.curves[i].dgamma_by_dcoeff_vjp(dgamma_by_dcoeff_vjp_vecs[i]) + self.curves[i].dgammadash_by_dcoeff_vjp(dgammadash_by_dcoeff_vjp_vecs[i]) for i in range(len(self.curves))]
+        return res
