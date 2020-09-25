@@ -15,3 +15,9 @@ and then you can run
 
     cd driver
     python3 driver.py
+
+## Trouble shooting
+
+On a mac you may want to point the install at the GCC compiler (e.g. because you have an old version of clang installed). Assuming you have `gcc-10` installed and in the `PATH`, simply do
+
+    env CC=gcc-10 CXX=g++-10 pip3 install -vvv -e .
