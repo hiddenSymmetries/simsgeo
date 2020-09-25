@@ -2,3 +2,6 @@ build/
 simsgeo/__pycache__/
 .python-version
 *.so
+simsgeo.egg-info/
+var/
+tests/__pycache__/
