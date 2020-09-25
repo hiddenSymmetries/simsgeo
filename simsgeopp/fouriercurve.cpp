@@ -47,6 +47,7 @@ class FourierCurve : public Curve<Array> {
         }
 
         void gamma_impl(Array& data) {
+            data *= 0;
             for (int k = 0; k < numquadpoints; ++k) {
                 for (int i = 0; i < 3; ++i) {
                     data(k, i) += dofs[i][0];
@@ -58,12 +59,37 @@ class FourierCurve : public Curve<Array> {
             }
         }
 
-        void dgamma_by_dphi_impl(Array& data) {
+        void gammadash_impl(Array& data) {
+            data *= 0;
             for (int k = 0; k < numquadpoints; ++k) {
                 for (int i = 0; i < 3; ++i) {
                     for (int j = 1; j < order+1; ++j) {
-                        data(0, k, i) += +dofs[i][2*j-1]*2*M_PI*j*cos(2*M_PI*j*quadpoints[k]);
-                        data(0, k, i) += -dofs[i][2*j]*2*M_PI*j*sin(2*M_PI*j*quadpoints[k]);
+                        data(k, i) += +dofs[i][2*j-1]*2*M_PI*j*cos(2*M_PI*j*quadpoints[k]);
+                        data(k, i) += -dofs[i][2*j]*2*M_PI*j*sin(2*M_PI*j*quadpoints[k]);
+                    }
+                }
+            }
+        }
+
+        void gammadashdash_impl(Array& data) {
+            data *= 0;
+            for (int k = 0; k < numquadpoints; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 1; j < order+1; ++j) {
+                        data(k, i) += -dofs[i][2*j-1] * (2*M_PI*j)*(2*M_PI*j)*sin(2*M_PI*j*quadpoints[k]);
+                        data(k, i) += -dofs[i][2*j]   * (2*M_PI*j)*(2*M_PI*j)*cos(2*M_PI*j*quadpoints[k]);
+                    }
+                }
+            }
+        }
+
+        void gammadashdashdash_impl(Array& data) {
+            data *= 0;
+            for (int k = 0; k < numquadpoints; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 1; j < order+1; ++j) {
+                        data(k, i) += -dofs[i][2*j-1] * (2*M_PI*j)*(2*M_PI*j)*(2*M_PI*j)*cos(2*M_PI*j*quadpoints[k]);
+                        data(k, i) += +dofs[i][2*j]   * (2*M_PI*j)*(2*M_PI*j)*(2*M_PI*j)*sin(2*M_PI*j*quadpoints[k]);
                     }
                 }
             }
@@ -74,11 +100,45 @@ class FourierCurve : public Curve<Array> {
                 for (int i = 0; i < 3; ++i) {
                     data(k, i, i*(2*order+1)) = 1.;
                     for (int j = 1; j < order+1; ++j) {
-                        data(i*(2*order+1) + 2*j-1, k, i) = sin(2*M_PI*j*quadpoints[k]);
-                        data(i*(2*order+1) + 2*j  , k, i) = cos(2*M_PI*j*quadpoints[k]);
+                        data(k, i, i*(2*order+1) + 2*j-1) = sin(2*M_PI*j*quadpoints[k]);
+                        data(k, i, i*(2*order+1) + 2*j  ) = cos(2*M_PI*j*quadpoints[k]);
                     }
                 }
             }
         }
+
+        void dgammadash_by_dcoeff_impl(Array& data) {
+            for (int k = 0; k < numquadpoints; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 1; j < order+1; ++j) {
+                        data(k, i, i*(2*order+1) + 2*j-1) = +2*M_PI*j*cos(2*M_PI*j*quadpoints[k]);
+                        data(k, i, i*(2*order+1) + 2*j  ) = -2*M_PI*j*sin(2*M_PI*j*quadpoints[k]);
+                    }
+                }
+            }
+        }
+
+        void dgammadashdash_by_dcoeff_impl(Array& data) {
+            for (int k = 0; k < numquadpoints; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 1; j < order+1; ++j) {
+                        data(k, i, i*(2*order+1) + 2*j-1) = -(2*M_PI*j)*(2*M_PI*j)*sin(2*M_PI*j*quadpoints[k]);
+                        data(k, i, i*(2*order+1) + 2*j  ) = -(2*M_PI*j)*(2*M_PI*j)*cos(2*M_PI*j*quadpoints[k]);
+                    }
+                }
+            }
+        }
+
+        void dgammadashdashdash_by_dcoeff_impl(Array& data) {
+            for (int k = 0; k < numquadpoints; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 1; j < order+1; ++j) {
+                        data(k, i, i*(2*order+1) + 2*j-1) = -(2*M_PI*j)*(2*M_PI*j)*(2*M_PI*j)*cos(2*M_PI*j*quadpoints[k]);
+                        data(k, i, i*(2*order+1) + 2*j  ) = +(2*M_PI*j)*(2*M_PI*j)*(2*M_PI*j)*sin(2*M_PI*j*quadpoints[k]);
+                    }
+                }
+            }
+        }
+
 };
 
