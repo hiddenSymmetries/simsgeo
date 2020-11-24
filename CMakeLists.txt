@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(simsgeo)
+project(simsgeopp)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
 find_package(PythonInterp 3 REQUIRED)
@@ -46,3 +46,5 @@ target_include_directories(hello_world PRIVATE  "xtensor/include" "xtensor-pytho
 #foreach (_variableName ${_variableNames})
 #    message(STATUS "${_variableName}=${${_variableName}}")
 #endforeach()
+
+install(TARGETS simsgeopp DESTINATION .)
