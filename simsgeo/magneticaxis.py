@@ -21,9 +21,11 @@ class StelleratorSymmetricCylindricalFourierCurve(JaxCurve):
 
     """ This class can for example be used to describe a magnetic axis. """
 
-    def __init__(self, numquadpoints, order, nfp):
+    def __init__(self, quadpoints, order, nfp):
+        if isinstance(quadpoints, int):
+            quadpoints = np.linspace(0, 1/nfp, quadpoints, endpoint=False)
         pure = lambda dofs, points: stelleratorsymmetriccylindricalfouriercurve_pure(dofs, points, order, nfp)
-        super().__init__(numquadpoints, pure)
+        super().__init__(quadpoints, pure)
         self.order = order
         self.nfp = nfp
         self.coefficients = [np.zeros((order+1,)), np.zeros((order,))]
@@ -34,9 +36,11 @@ class StelleratorSymmetricCylindricalFourierCurve(JaxCurve):
     def get_dofs(self):
         return np.concatenate(self.coefficients)
 
-    def set_dofs(self, dofs):
+    def set_dofs_impl(self, dofs):
         counter = 0
         for i in range(self.order+1):
             self.coefficients[0][i] = dofs[i]
         for i in range(self.order):
             self.coefficients[1][i] = dofs[self.order + 1 + i]
+        for d in self.dependencies:
+            d.invalidate_cache()

@@ -5,12 +5,23 @@
 template<class Array>
 class FourierCurve : public Curve<Array> {
     private:
-        vector<vector<double>> dofs;
         int order;
-        using Curve<Array>::numquadpoints;
-        using Curve<Array>::quadpoints;
     public:
-        FourierCurve(int _numquadpoints, int _order) : Curve<Array>(_numquadpoints), order(_order) {
+        using Curve<Array>::quadpoints;
+        using Curve<Array>::numquadpoints;
+        vector<vector<double>> dofs;
+        FourierCurve(int _numquadpoints, int _order) : Curve<Array>(std::vector<double>(_numquadpoints, 0.)), order(_order) {
+            for (int i = 0; i < numquadpoints; ++i) {
+                this->quadpoints[i] = ((double)i)/numquadpoints;
+            }
+            dofs = vector<vector<double>> {
+                vector<double>(2*order+1, 0.), 
+                vector<double>(2*order+1, 0.), 
+                vector<double>(2*order+1, 0.)
+            };
+        }
+
+        FourierCurve(vector<double> _quadpoints, int _order) : Curve<Array>(_quadpoints), order(_order) {
             dofs = vector<vector<double>> {
                 vector<double>(2*order+1, 0.), 
                 vector<double>(2*order+1, 0.), 
@@ -22,7 +33,7 @@ class FourierCurve : public Curve<Array> {
             return 3*(2*order+1);
         }
 
-        void set_dofs(const vector<double>& _dofs) {
+        void set_dofs_impl(const vector<double>& _dofs) override {
             int counter = 0;
             for (int i = 0; i < 3; ++i) {
                 dofs[i][0] = _dofs[counter++];

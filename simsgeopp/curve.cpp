@@ -59,11 +59,8 @@ class Curve {
 
     public:
 
-        Curve(int _numquadpoints) : numquadpoints(_numquadpoints) {
-            quadpoints = std::vector(numquadpoints, 0.);
-            for (int i = 0; i < numquadpoints; ++i) {
-                quadpoints[i] = ((double)i)/numquadpoints;
-            }
+        Curve(vector<double> _quadpoints) : quadpoints(_quadpoints) {
+            numquadpoints = quadpoints.size();
         }
 
         void invalidate_cache() {
@@ -72,8 +69,13 @@ class Curve {
             }
         }
 
+        void set_dofs(const vector<double>& _dofs) {
+            this->set_dofs_impl(_dofs);
+            this->invalidate_cache();
+        }
+
         virtual int num_dofs() = 0;
-        virtual void set_dofs(const vector<double>& _dofs) = 0;
+        virtual void set_dofs_impl(const vector<double>& _dofs) = 0;
         virtual vector<double> get_dofs() = 0;
 
         virtual void gamma_impl(Array& data) = 0;
@@ -92,6 +94,22 @@ class Curve {
         virtual void torsion_impl(Array& data) { throw logic_error("torsion_impl was not implemented"); };
         virtual void dtorsion_by_dcoeff_impl(Array& data) { throw logic_error("dtorsion_by_dcoeff_impl was not implemented"); };
 
+        void incremental_arclength_impl(Array& data) { 
+            auto dg = this->gammadash();
+            for (int i = 0; i < numquadpoints; ++i) {
+                data(i) = std::sqrt(dg(i, 0)*dg(i, 0)+dg(i, 1)*dg(i, 1)+dg(i, 2)*dg(i, 2));
+            }
+        };
+        void dincremental_arclength_by_dcoeff_impl(Array& data) {
+            auto dg = this->gammadash();
+            auto dgdc = this->dgammadash_by_dcoeff();
+            auto l = this->incremental_arclength();
+            for (int i = 0; i < numquadpoints; ++i) {
+                for (int c = 0; c < num_dofs(); ++c) {
+                    data(i, c) = (1./l(i)) * (dg(i, 0) * dgdc(i, 0, c) + dg(i, 1) * dgdc(i, 1, c) + dg(i, 2) * dgdc(i, 2, c));
+                }
+            }
+        };
 
         Array& gamma() {
             return check_the_cache("gamma", {numquadpoints, 3}, [this](Array& A) { return gamma_impl(A);});
@@ -139,8 +157,24 @@ class Curve {
             return check_the_cache("kappa", {numquadpoints}, [this](Array& A) { return kappa_impl(A);});
         }
 
+        Array& dkappa_by_dcoeff() {
+            return check_the_cache("dkappa_by_dcoeff", {numquadpoints, num_dofs()}, [this](Array& A) { return dkappa_by_dcoeff_impl(A);});
+        }
+
         Array& torsion() {
             return check_the_cache("torsion", {numquadpoints}, [this](Array& A) { return torsion_impl(A);});
+        }
+
+        Array& dtorsion_by_dcoeff() {
+            return check_the_cache("dtorsion_by_dcoeff", {numquadpoints, num_dofs()}, [this](Array& A) { return dtorsion_by_dcoeff_impl(A);});
+        }
+
+        Array& incremental_arclength() {
+            return check_the_cache("incremental_arclength", {numquadpoints}, [this](Array& A) { return incremental_arclength_impl(A);});
+        }
+
+        Array& dincremental_arclength_by_dcoeff() {
+            return check_the_cache("dincremental_arclength_by_dcoeff", {numquadpoints, num_dofs()}, [this](Array& A) { return dincremental_arclength_by_dcoeff_impl(A);});
         }
 
         virtual ~Curve() = default;

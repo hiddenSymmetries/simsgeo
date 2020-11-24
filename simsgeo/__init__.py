@@ -4,3 +4,4 @@ from .magneticaxis import *
 from .fouriercurve import *
 from .objectives import *
 from .config import *
+from .curve import RotatedCurve
