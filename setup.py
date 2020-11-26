@@ -39,7 +39,7 @@ class get_numpy_include(object):
 ext_modules = [
     Extension(
         'simsgeopp',
-        ['simsgeopp/python.cpp'],
+        ['simsgeopp/python.cpp', 'simsgeopp/biot_savart.cpp'],
         include_dirs=[
             # Path to pybind11 headers
             get_numpy_include(),
@@ -50,6 +50,8 @@ ext_modules = [
             os.path.join('.', 'xtensor', 'include'),
             os.path.join('.', 'xtensor-python', 'include'),
             os.path.join('.', 'xsimd', 'include'),
+            os.path.join('.', 'blaze')
+            # os.path.join('.', 'simsgeopp'),
         ],
         language='c++'
     ),

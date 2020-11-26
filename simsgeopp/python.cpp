@@ -11,6 +11,8 @@ typedef xt::pyarray<double> PyArray;
 #include "fouriercurve.cpp"
 typedef FourierCurve<PyArray> PyFourierCurve;
 
+#include "biot_savart.h"
+
 namespace py = pybind11;
 
 template <class PyFourierCurveBase = PyFourierCurve> class PyFourierCurveTrampoline : public PyCurveTrampoline<PyFourierCurveBase> {
@@ -90,6 +92,8 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("invalidate_cache", &PyFourierCurve::invalidate_cache)
         .def_readonly("dofs", &PyFourierCurve::dofs)
         .def_readonly("quadpoints", &PyFourierCurve::quadpoints);
+
+    m.def("biot_savart", &biot_savart);
 
 
 #ifdef VERSION_INFO
