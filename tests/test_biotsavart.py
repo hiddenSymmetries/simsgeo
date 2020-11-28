@@ -39,3 +39,59 @@ def test_biotsavart_exponential_convergence():
     dbfine   = BiotSavart([get_coil(20)]  , [1e4]).set_points(points).d2B_by_dXdX(compute_derivatives=2)
     assert np.linalg.norm(btrue-bfine) < 1e-4 * np.linalg.norm(bcoarse-bfine)
     print(time()-tic)
+
+def test_dB_by_dcoilcoeff_reverse_taylortest():
+    np.random.seed(1)
+    coil = get_coil()
+    bs = BiotSavart([coil], [1e4])
+    points = np.asarray(17 * [[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+    points += 0.001 * (np.random.rand(*points.shape)-0.5)
+
+    bs.set_points(points)
+    coil_dofs = np.asarray(coil.get_dofs())
+    B = bs.B()
+    dBdX = bs.dB_by_dX()
+    J0 = np.sum(B**2)
+    dJ = bs.B_and_dB_vjp(B, dBdX)
+
+    h = 1e-2 * np.random.rand(len(coil_dofs)).reshape(coil_dofs.shape)
+    dJ_dh = 2*np.sum(dJ[0][0] * h)
+    err = 1e6
+    for i in range(5, 10):
+        eps = 0.5**i
+        coil.set_dofs(coil_dofs + eps * h)
+        bs.clear_cached_properties()
+        Bh = bs.B()
+        Jh = np.sum(Bh**2)
+        deriv_est = (Jh-J0)/eps
+        err_new = np.linalg.norm(deriv_est-dJ_dh)
+        assert err_new < 0.55 * err
+        err = err_new
+
+def test_dBdX_by_dcoilcoeff_reverse_taylortest():
+    np.random.seed(1)
+    coil = get_coil()
+    bs = BiotSavart([coil], [1e4])
+    points = np.asarray(17 * [[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+    points += 0.001 * (np.random.rand(*points.shape)-0.5)
+
+    bs.set_points(points)
+    coil_dofs = np.asarray(coil.get_dofs())
+    B = bs.B()
+    dBdX = bs.dB_by_dX()
+    J0 = np.sum(dBdX**2)
+    dJ = bs.B_and_dB_vjp(B, dBdX)
+
+    h = 1e-2 * np.random.rand(len(coil_dofs)).reshape(coil_dofs.shape)
+    dJ_dh = 2*np.sum(dJ[1][0] * h)
+    err = 1e6
+    for i in range(5, 10):
+        eps = 0.5**i
+        coil.set_dofs(coil_dofs + eps * h)
+        bs.clear_cached_properties()
+        dBdXh = bs.dB_by_dX()
+        Jh = np.sum(dBdXh**2)
+        deriv_est = (Jh-J0)/eps
+        err_new = np.linalg.norm(deriv_est-dJ_dh)
+        assert err_new < 0.55 * err
+        err = err_new

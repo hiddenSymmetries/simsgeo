@@ -17,7 +17,7 @@ set(XTENSOR_USE_OPENMP 0)
 
 
 pybind11_add_module(simsgeopp
-    simsgeopp/python.cpp simsgeopp/biot_savart.cpp
+    simsgeopp/python.cpp simsgeopp/biot_savart.cpp simsgeopp/biot_savart_derivative.cpp
     )
 set_target_properties(simsgeopp
     PROPERTIES
@@ -27,7 +27,7 @@ target_include_directories(simsgeopp PRIVATE "xtensor/include" "xtensor-python/i
 target_link_libraries(simsgeopp PUBLIC ${PYTHON_LIBRARY})
 
 
-add_executable(hello_world driver/main.cpp simsgeopp/biot_savart.cpp)
+add_executable(hello_world driver/main.cpp simsgeopp/biot_savart.cpp simsgeopp/biot_savart_derivative.cpp)
 set_target_properties(hello_world
     PROPERTIES
     CXX_STANDARD 17

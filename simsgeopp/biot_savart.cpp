@@ -38,10 +38,9 @@ void biot_savart_kernel(vector_type& pointsx, vector_type& pointsy, vector_type&
             if constexpr(derivs > 0) {
                 auto norm_diff_4_inv = 1/(norm_diff_2*norm_diff_2);
                 auto three_dgamma_by_dphi_cross_diff_by_norm_diff = dgamma_by_dphi_j_cross_diff * (3/norm_diff);
+                auto dgamma_by_dphi_j_simd_norm_diff = dgamma_by_dphi_j_simd * norm_diff;
                 for(int k=0; k<3; k++) {
-                    auto ek = Vec3dSimd(0., 0., 0.);
-                    ek[k] += 1.;
-                    auto numerator1 = cross(dgamma_by_dphi_j_simd, k) * norm_diff;
+                    auto numerator1 = cross(dgamma_by_dphi_j_simd_norm_diff, k);
                     auto numerator2 = three_dgamma_by_dphi_cross_diff_by_norm_diff * diff[k];
                     auto temp = (numerator1-numerator2);
                     dB_dX_i[k].x = xsimd::fma(temp.x, norm_diff_4_inv, dB_dX_i[k].x);

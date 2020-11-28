@@ -94,6 +94,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def_readonly("quadpoints", &PyFourierCurve::quadpoints);
 
     m.def("biot_savart", &biot_savart);
+    m.def("biot_savart_by_dcoilcoeff_all_vjp_full", &biot_savart_by_dcoilcoeff_all_vjp_full);
 
 
 #ifdef VERSION_INFO
