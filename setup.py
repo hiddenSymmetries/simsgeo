@@ -98,8 +98,8 @@ class BuildExt(build_ext):
 
     def build_extensions(self):
         if has_flag(self.compiler, '-fopenmp'):
-            c_opts['unix'] += ['-fopenmp']
-            l_opts['unix'] += ['-fopenmp']
+            self.c_opts['unix'] += ['-fopenmp']
+            self.l_opts['unix'] += ['-fopenmp']
 
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
