@@ -188,10 +188,14 @@ class Curve():
         d1_x_d2   = cross(dgamma, d2gamma)
         d1_x_d3   = cross(dgamma, d3gamma)
         normdgamma = norm(dgamma)
+        norm_d1_x_d2 = norm(d1_x_d2)
+        dgamma_dcoeff_  = self.dgammadash_by_dcoeff()
+        d2gamma_dcoeff_ = self.dgammadashdash_by_dcoeff()
+        d3gamma_dcoeff_ = self.dgammadashdashdash_by_dcoeff()
         for i in range(self.num_dofs()):
-            dgamma_dcoeff  = self.dgammadash_by_dcoeff()[:, :, i]
-            d2gamma_dcoeff = self.dgammadashdash_by_dcoeff()[:, :, i]
-            d3gamma_dcoeff = self.dgammadashdashdash_by_dcoeff()[:, :, i]
+            dgamma_dcoeff  = dgamma_dcoeff_[:, :, i]
+            d2gamma_dcoeff = d2gamma_dcoeff_[:, :, i]
+            d3gamma_dcoeff = d3gamma_dcoeff_[:, :, i]
 
             d1coeff_x_d2   = cross(dgamma_dcoeff, d2gamma)
             d1coeff_dot_d2 = inner(dgamma_dcoeff, d2gamma)
@@ -204,17 +208,17 @@ class Curve():
             dkappadash_by_dcoeff[:, i] = (
                 +inner(d1coeff_x_d2 + d1_x_d2coeff, d1_x_d3)
                 +inner(d1_x_d2, d1coeff_x_d3 + d1_x_d3coeff)
-            )/(norm(d1_x_d2) * normdgamma**3) \
+            )/(norm_d1_x_d2 * normdgamma**3) \
                 -inner(d1_x_d2, d1_x_d3) * (
                     (
-                        inner(d1coeff_x_d2 + d1_x_d2coeff, d1_x_d2)/(norm(d1_x_d2)**3 * normdgamma**3)
-                        + 3 * inner(dgamma, dgamma_dcoeff)/(norm(d1_x_d2) * normdgamma**5)
+                        inner(d1coeff_x_d2 + d1_x_d2coeff, d1_x_d2)/(norm_d1_x_d2**3 * normdgamma**3)
+                        + 3 * inner(dgamma, dgamma_dcoeff)/(norm_d1_x_d2 * normdgamma**5)
                     )
                 ) \
                 - 3 * (
-                    + (d1coeff_dot_d2 + d1_dot_d2coeff) * norm(d1_x_d2)/normdgamma**5
-                    + d1_dot_d2 * inner(d1coeff_x_d2 + d1_x_d2coeff, d1_x_d2)/(norm(d1_x_d2) * normdgamma**5)
-                    - 5 * d1_dot_d2 * norm(d1_x_d2) * d1_dot_d1coeff/normdgamma**7
+                    + (d1coeff_dot_d2 + d1_dot_d2coeff) * norm_d1_x_d2/normdgamma**5
+                    + d1_dot_d2 * inner(d1coeff_x_d2 + d1_x_d2coeff, d1_x_d2)/(norm_d1_x_d2 * normdgamma**5)
+                    - 5 * d1_dot_d2 * norm_d1_x_d2 * d1_dot_d1coeff/normdgamma**7
                 )
         return dkappadash_by_dcoeff
 
@@ -226,6 +230,11 @@ class Curve():
     #     res = np.zeros((len(self.quadpoints), self.num_dofs()))
     #     res[:, :] = (1/l[:, None]) * np.sum(dgamma_by_dphi[:, :, None] * dgamma_by_dphidcoeff[:, :, :], axis=1)
     #     return res
+
+
+            
+
+
 
 
 
