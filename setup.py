@@ -39,7 +39,7 @@ class get_numpy_include(object):
 ext_modules = [
     Extension(
         'simsgeopp',
-        ['simsgeopp/python.cpp', 'simsgeopp/biot_savart.cpp'],
+        ['simsgeopp/python.cpp', 'simsgeopp/biot_savart.cpp', 'simsgeopp/biot_savart_derivative.cpp'],
         include_dirs=[
             # Path to pybind11 headers
             get_numpy_include(),
@@ -94,21 +94,13 @@ class BuildExt(build_ext):
         'msvc': [],
         'unix': [],
     }
-
-    if sys.platform == 'darwin':
-        if 'CC' in os.environ and 'GCC' in os.environ['CC'].upper():
-            c_opts['unix'] += ['-fopenmp']
-            l_opts['unix'] += ['-fopenmp']
-        else:
-            darwin_opts = ['-stdlib=libc++', '-mmacosx-version-min=10.7']
-            c_opts['unix'] += darwin_opts
-            l_opts['unix'] += darwin_opts
-    else:
-        c_opts['unix'] += ['-fopenmp']
-        l_opts['unix'] += ['-fopenmp']
         
 
     def build_extensions(self):
+        if not self.compiler.compiler[0] == 'clang':
+            c_opts['unix'] += ['-fopenmp']
+            l_opts['unix'] += ['-fopenmp']
+
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
         link_opts = self.l_opts.get(ct, [])
