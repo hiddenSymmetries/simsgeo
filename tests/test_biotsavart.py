@@ -95,3 +95,72 @@ def test_dBdX_by_dcoilcoeff_reverse_taylortest():
         err_new = np.linalg.norm(deriv_est-dJ_dh)
         assert err_new < 0.55 * err
         err = err_new
+
+@pytest.mark.parametrize("use_cpp", [True, False])
+@pytest.mark.parametrize("idx", [0, 16])
+def test_biotsavart_dBdX_taylortest(use_cpp, idx):
+    coil = get_coil()
+    bs = BiotSavart([coil], [1e4])
+    points = np.asarray(17 * [[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+    points += 0.001 * (np.random.rand(*points.shape)-0.5)
+    bs.set_points(points)
+    B0 = bs.B()[idx]
+    dB = bs.dB_by_dX()[idx]
+    for direction in [np.asarray((1., 0, 0)), np.asarray((0, 1., 0)), np.asarray((0, 0, 1.))]:
+        deriv = dB.T.dot(direction)
+        err = 1e6
+        for i in range(5, 10):
+            eps = 0.5**i
+            bs.set_points(points + eps * direction)
+            Beps = bs.B()[idx]
+            deriv_est = (Beps-B0)/(eps)
+            new_err = np.linalg.norm(deriv-deriv_est)
+            assert new_err < 0.55 * err
+            err = new_err
+
+@pytest.mark.parametrize("use_cpp", [True, False])
+@pytest.mark.parametrize("idx", [0, 16])
+def test_biotsavart_gradient_symmetric_and_divergence_free(use_cpp, idx):
+    coil = get_coil()
+    bs = BiotSavart([coil], [1e4])
+    points = np.asarray(17 * [[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+    points += 0.001 * (np.random.rand(*points.shape)-0.5)
+    bs.set_points(points)
+    dB = bs.dB_by_dX()
+    assert abs(dB[idx][0, 0] + dB[idx][1, 1] + dB[idx][2, 2]) < 1e-14
+    assert np.allclose(dB[idx], dB[idx].T)
+
+@pytest.mark.parametrize("idx", [0, 16])
+@pytest.mark.parametrize("use_cpp", [True, False])
+def test_d2B_by_dXdX_is_symmetric(use_cpp, idx):
+    coil = get_coil()
+    bs = BiotSavart([coil], [1e4])
+    points = np.asarray(17 * [[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+    points += 0.001 * (np.random.rand(*points.shape)-0.5)
+    bs.set_points(points)
+    d2B_by_dXdX = bs.d2B_by_dXdX()
+    for i in range(3):
+        assert np.allclose(d2B_by_dXdX[idx, :, :, i], d2B_by_dXdX[idx, :, :, i].T)
+
+
+@pytest.mark.parametrize("idx", [0, 16])
+@pytest.mark.parametrize("use_cpp", [True, False])
+def test_biotsavart_d2B_by_dXdX_taylortest(use_cpp, idx):
+    coil = get_coil()
+    bs = BiotSavart([coil], [1e4])
+    points = np.asarray(17 *[[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+    bs.set_points(points)
+    B0, dB_by_dX, d2B_by_dXdX = bs.B(), bs.dB_by_dX(), bs.d2B_by_dXdX()
+    for direction in [np.asarray((1., 0, 0)), np.asarray((0, 1., 0)), np.asarray((0, 0, 1.))]:
+        first_deriv = dB_by_dX[idx].T.dot(direction)
+        second_deriv = np.einsum('ijk,i,j->k', d2B_by_dXdX[idx], direction, direction)
+        err = 1e6
+        for i in range(5, 10):
+            eps = 0.5**i
+            bs.set_points(points + eps * direction)
+            Beps = bs.B()[idx]
+            deriv_est = (Beps-B0)/(eps)
+            second_deriv_est = 2*(deriv_est - first_deriv)/eps
+            new_err = np.linalg.norm(second_deriv-second_deriv_est)
+            assert new_err < 0.55 * err
+            err = new_err
