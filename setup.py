@@ -97,7 +97,7 @@ class BuildExt(build_ext):
         
 
     def build_extensions(self):
-        if not self.compiler.compiler[0] == 'clang':
+        if has_flag(self.compiler, '-fopenmp'):
             c_opts['unix'] += ['-fopenmp']
             l_opts['unix'] += ['-fopenmp']
 
