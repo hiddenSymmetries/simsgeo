@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
-from simsgeo import JaxStelleratorSymmetricCylindricalFourierCurve, StelleratorSymmetricCylindricalFourierCurve, FourierCurve, JaxFourierCurve, RotatedCurve
+from simsgeo import JaxStelleratorSymmetricCylindricalFourierCurve, StelleratorSymmetricCylindricalFourierCurve, \
+    FourierCurve, JaxFourierCurve, RotatedCurve
+from simsgeo import parameters
 parameters['jit'] = False
 
 def taylor_test(f, df, x, epsilons=None, direction=None):
