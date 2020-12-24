@@ -109,7 +109,7 @@ def test_curve_torsion_taylor_test(curve):
 def test_curve_minimum_distance_taylor_test(curve):
     ncurves = 3
     curve_t = curve.curve.__class__.__name__ if isinstance(curve, RotatedCurve) else curve.__class__.__name__
-    curves = [curve] + [RotatedCurve(create_curve(curve_t, False), 0.1*i, False) for i in range(1, ncurves)]
+    curves = [curve] + [RotatedCurve(create_curve(curve_t, False), 0.1*i, True) for i in range(1, ncurves)]
     J = MinimumDistance(curves, 0.2)
     for k in range(ncurves):
         curve_dofs = np.asarray(curves[k].get_dofs())

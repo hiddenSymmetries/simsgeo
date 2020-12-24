@@ -9,6 +9,8 @@ import jax.numpy as jnp
 def incremental_arclength_pure(d1gamma):
     return jnp.linalg.norm(d1gamma, axis=1)
 
+incremental_arclength_vjp = jit(lambda d1gamma, v: vjp(lambda d1g: incremental_arclength_pure(d1g), d1gamma)[1](v)[0])
+
 @jit
 def kappa_pure(d1gamma, d2gamma):
     return jnp.linalg.norm(jnp.cross(d1gamma, d2gamma), axis=1)/jnp.linalg.norm(d1gamma, axis=1)**3
@@ -29,8 +31,6 @@ torsionvjp2 = jit(lambda d1gamma, d2gamma, d3gamma, v: vjp(lambda d3g: torsion_p
 
 class Curve():
     def __init__(self):
-        self.dincremental_arclength_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(lambda d: incremental_arclength_pure(self.gammadash_jax(d)), x)[1](v)[0])
-        self.dincremental_arclength_by_dcoeff_jax = jit(jacfwd(lambda d: incremental_arclength_pure(self.gammadash_jax(d))))
         self.dependencies = []
 
     def plot(self, ax=None, show=True, plot_derivative=False, closed_loop=True, color=None, linestyle=None):
@@ -57,8 +57,8 @@ class Curve():
             plt.show()
         return ax
 
-    # def incremental_arclength(self):
-    #     return np.asarray(incremental_arclength_pure(self.gammadash()))
+    def dincremental_arclength_by_dcoeff_vjp(self, v):
+        return self.dgammadash_by_dcoeff_vjp(incremental_arclength_vjp(self.gammadash(), v))
 
     def kappa_impl(self, kappa):
         kappa[:] = np.asarray(kappa_pure(self.gammadash(), self.gammadashdash()))
@@ -220,20 +220,6 @@ class Curve():
                 )
         return dkappadash_by_dcoeff
 
-    # def dincremental_arclength_by_dcoeff(self):
-    #     l = self.incremental_arclength()
-    #     dgamma_by_dphi = self.gammadash()
-    #     dgamma_by_dphidcoeff = self.dgammadash_by_dcoeff()
-    #     num_coeff = dgamma_by_dphidcoeff.shape[2]
-    #     res = np.zeros((len(self.quadpoints), self.num_dofs()))
-    #     res[:, :] = (1/l[:, None]) * np.sum(dgamma_by_dphi[:, :, None] * dgamma_by_dphidcoeff[:, :, :], axis=1)
-    #     return res
-
-
-            
-
-
-
 
 
 class JaxCurve(sgpp.Curve, Curve):
@@ -319,11 +305,6 @@ class JaxCurve(sgpp.Curve, Curve):
     def dtorsion_by_dcoeff_vjp(self, v):
         return self.dtorsion_by_dcoeff_vjp_jax(self.get_dofs(), v)
 
-    def dincremental_arclength_by_dcoeff_vjp(self, v):
-        return self.dincremental_arclength_by_dcoeff_vjp_jax(self.get_dofs(), v)
-
-    # def dincremental_arclength_by_dcoeff_impl(self):
-    #     return np.asarray(self.dincremental_arclength_by_dcoeff_jax(self.get_dofs()))
 
 from math import pi, sin, cos
 
