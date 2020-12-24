@@ -8,15 +8,13 @@ import jax.numpy as jnp
 @jit
 def incremental_arclength_pure(d1gamma):
     return jnp.linalg.norm(d1gamma, axis=1)
-incremental_arclengthgrad0 = jit(lambda d1gamma, v: vjp(incremental_arclength_pure, d1gamma)[1](v))
-
 
 @jit
 def kappa_pure(d1gamma, d2gamma):
     return jnp.linalg.norm(jnp.cross(d1gamma, d2gamma), axis=1)/jnp.linalg.norm(d1gamma, axis=1)**3
 
-kappavjp0 = jit(lambda d1gamma, d2gamma, v: vjp(lambda d1g: kappa_pure(d1g, d2gamma), d1gamma)[1](v))
-kappavjp1 = jit(lambda d1gamma, d2gamma, v: vjp(lambda d2g: kappa_pure(d1gamma, d2g), d2gamma)[1](v))
+kappavjp0 = jit(lambda d1gamma, d2gamma, v: vjp(lambda d1g: kappa_pure(d1g, d2gamma), d1gamma)[1](v)[0])
+kappavjp1 = jit(lambda d1gamma, d2gamma, v: vjp(lambda d2g: kappa_pure(d1gamma, d2g), d2gamma)[1](v)[0])
 kappagrad0 = jit(lambda d1gamma, d2gamma: jacfwd(lambda d1g: kappa_pure(d1g, d2gamma))(d1gamma))
 kappagrad1 = jit(lambda d1gamma, d2gamma: jacfwd(lambda d2g: kappa_pure(d1gamma, d2g))(d2gamma))
 
@@ -25,13 +23,13 @@ kappagrad1 = jit(lambda d1gamma, d2gamma: jacfwd(lambda d2g: kappa_pure(d1gamma,
 def torsion_pure(d1gamma, d2gamma, d3gamma):
     return jnp.sum(jnp.cross(d1gamma, d2gamma, axis=1) * d3gamma, axis=1) / jnp.sum(jnp.cross(d1gamma, d2gamma, axis=1)**2, axis=1)
 
-torsiongrad0 = jit(lambda d1gamma, d2gamma, d3gamma, v: vjp(lambda d1g: torsion_pure(d1g, d2gamma, d3gamma), d1gamma)[1](v))
-torsiongrad1 = jit(lambda d1gamma, d2gamma, d3gamma, v: vjp(lambda d2g: torsion_pure(d1gamma, d2g, d3gamma), d2gamma)[1](v))
-torsiongrad2 = jit(lambda d1gamma, d2gamma, d3gamma, v: vjp(lambda d3g: torsion_pure(d1gamma, d2gamma, d3g), d3gamma)[1](v))
+torsionvjp0 = jit(lambda d1gamma, d2gamma, d3gamma, v: vjp(lambda d1g: torsion_pure(d1g, d2gamma, d3gamma), d1gamma)[1](v)[0])
+torsionvjp1 = jit(lambda d1gamma, d2gamma, d3gamma, v: vjp(lambda d2g: torsion_pure(d1gamma, d2g, d3gamma), d2gamma)[1](v)[0])
+torsionvjp2 = jit(lambda d1gamma, d2gamma, d3gamma, v: vjp(lambda d3g: torsion_pure(d1gamma, d2gamma, d3g), d3gamma)[1](v)[0])
 
 class Curve():
     def __init__(self):
-        self.dincremental_arclength_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(lambda d: incremental_arclength_pure(self.gammadash_jax(d)), x)[1](v))
+        self.dincremental_arclength_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(lambda d: incremental_arclength_pure(self.gammadash_jax(d)), x)[1](v)[0])
         self.dincremental_arclength_by_dcoeff_jax = jit(jacfwd(lambda d: incremental_arclength_pure(self.gammadash_jax(d))))
         self.dependencies = []
 
@@ -102,9 +100,9 @@ class Curve():
             + self.dgammadashdash_by_dcoeff_vjp(kappavjp1(self.gammadash(), self.gammadashdash(), v))
 
     def dtorsion_by_dcoeff_vjp(self, v):
-        return self.dgammadash_by_dcoeff_vjp(torsiongrad0(self.gammadash(), self.gammadashdash(), self.gammadashdashdash(), v)) \
-            + self.dgammadashdash_by_dcoeff_vjp(torsiongrad1(self.gammadash(), self.gammadashdash(), self.gammadashdashdash(), v)) \
-            + self.dgammadashdashdash_by_dcoeff_vjp(torsiongrad2(self.gammadash(), self.gammadashdash(), self.gammadashdashdash(), v))
+        return self.dgammadash_by_dcoeff_vjp(torsionvjp0(self.gammadash(), self.gammadashdash(), self.gammadashdashdash(), v)) \
+            + self.dgammadashdash_by_dcoeff_vjp(torsionvjp1(self.gammadash(), self.gammadashdash(), self.gammadashdashdash(), v)) \
+            + self.dgammadashdashdash_by_dcoeff_vjp(torsionvjp2(self.gammadash(), self.gammadashdash(), self.gammadashdashdash(), v))
 
     def frenet_frame(self):
         gammadash = self.gammadash()
@@ -250,27 +248,27 @@ class JaxCurve(sgpp.Curve, Curve):
 
         self.gamma_jax = jit(lambda dofs: self.gamma_pure(dofs, points))
         self.dgamma_by_dcoeff_jax = jit(jacfwd(self.gamma_jax))
-        self.dgamma_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gamma_jax, x)[1](v))
+        self.dgamma_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gamma_jax, x)[1](v)[0])
 
         self.gammadash_pure = lambda x, q: jvp(lambda p: self.gamma_pure(x, p), (q,), (ones,))[1]
         self.gammadash_jax = jit(lambda x: self.gammadash_pure(x, points))
         self.dgammadash_by_dcoeff_jax = jit(jacfwd(self.gammadash_jax))
-        self.dgammadash_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gammadash_jax, x)[1](v))
+        self.dgammadash_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gammadash_jax, x)[1](v)[0])
 
         self.gammadashdash_pure = lambda x, q: jvp(lambda p: self.gammadash_pure(x, p), (q,), (ones,))[1]
         self.gammadashdash_jax = jit(lambda x: self.gammadashdash_pure(x, points))
         self.dgammadashdash_by_dcoeff_jax = jit(jacfwd(self.gammadashdash_jax))
-        self.dgammadashdash_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gammadashdash_jax, x)[1](v))
+        self.dgammadashdash_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gammadashdash_jax, x)[1](v)[0])
 
         self.gammadashdashdash_pure = lambda x, q: jvp(lambda p: self.gammadashdash_pure(x, p), (q,), (ones,))[1]
         self.gammadashdashdash_jax = jit(lambda x: self.gammadashdashdash_pure(x, points))
         self.dgammadashdashdash_by_dcoeff_jax = jit(jacfwd(self.gammadashdashdash_jax))
-        self.dgammadashdashdash_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gammadashdashdash_jax, x)[1](v))
+        self.dgammadashdashdash_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(self.gammadashdashdash_jax, x)[1](v)[0])
 
-        self.dkappa_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(lambda d: kappa_pure(self.gammadash_jax(d), self.gammadashdash_jax(d)), x)[1](v))
+        self.dkappa_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(lambda d: kappa_pure(self.gammadash_jax(d), self.gammadashdash_jax(d)), x)[1](v)[0])
         self.dkappa_by_dcoeff_jax = jit(jacfwd(lambda d: kappa_pure(self.gammadash_jax(d), self.gammadashdash_jax(d))))
 
-        self.dtorsion_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(lambda d: torsion_pure(self.gammadash_jax(d), self.gammadashdash_jax(d), self.gammadashdashdash_jax(d)), x)[1](v))
+        self.dtorsion_by_dcoeff_vjp_jax = jit(lambda x, v: vjp(lambda d: torsion_pure(self.gammadash_jax(d), self.gammadashdash_jax(d), self.gammadashdashdash_jax(d)), x)[1](v)[0])
         self.dtorsion_by_dcoeff_jax = jit(jacfwd(lambda d: torsion_pure(self.gammadash_jax(d), self.gammadashdash_jax(d), self.gammadashdashdash_jax(d))))
 
     def gamma_impl(self, gamma):
@@ -363,6 +361,9 @@ class RotatedCurve(sgpp.Curve, Curve):
     def gammadashdash_impl(self, gammadashdash):
         gammadashdash[:] = self.curve.gammadashdash() @ self.rotmat
 
+    def gammadashdashdash_impl(self, gammadashdashdash):
+        gammadashdashdash[:] = self.curve.gammadashdashdash() @ self.rotmat
+
     def dgamma_by_dcoeff_impl(self, dgamma_by_dcoeff):
         dgamma_by_dcoeff[:] = self.rotmatT @ self.curve.dgamma_by_dcoeff()
 
@@ -374,3 +375,15 @@ class RotatedCurve(sgpp.Curve, Curve):
 
     def dgammadashdashdash_by_dcoeff_impl(self, dgammadashdashdash_by_dcoeff):
         dgammadashdashdash_by_dcoeff[:] = self.rotmatT @ self.curve.dgammadashdashdash_by_dcoeff()
+
+    def dgamma_by_dcoeff_vjp(self, v):
+        return self.curve.dgamma_by_dcoeff_vjp(v @ self.rotmat.T)
+
+    def dgammadash_by_dcoeff_vjp(self, v):
+        return self.curve.dgammadash_by_dcoeff_vjp(v @ self.rotmat.T)
+
+    def dgammadashdash_by_dcoeff_vjp(self, v):
+        return self.curve.dgammadashdash_by_dcoeff_vjp(v @ self.rotmat.T)
+
+    def dgammadashdashdash_by_dcoeff_vjp(self, v):
+        return self.curve.dgammadashdashdash_by_dcoeff_vjp(v @ self.rotmat.T)

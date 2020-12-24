@@ -5,3 +5,5 @@ simsgeo/__pycache__/
 simsgeo.egg-info/
 var/
 tests/__pycache__/
+htmlcov/
+.DS_Store
