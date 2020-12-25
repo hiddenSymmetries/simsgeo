@@ -1,6 +1,8 @@
 # SIMSGEO
 
 ![build-and-test-status](https://github.com/hiddenSymmetries/simsgeo/workflows/Build%20&%20Test/badge.svg)
+[![codecov](https://codecov.io/gh/hiddenSymmetries/simsgeo/branch/master/graph/badge.svg?token=3HW4S2HW69)](https://codecov.io/gh/hiddenSymmetries/simsgeo)
+
 
 
 A collection of mostly geometric objects that are commonly used in Stellarator codes.
