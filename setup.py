@@ -120,7 +120,7 @@ setup(
     name='simsgeo',
     long_description='',
     ext_modules=ext_modules,
-    install_requires=['pybind11>=2.4', 'numpy', 'jaxlib', 'jax'],
+    install_requires=['pybind11>=2.4', 'numpy', 'jaxlib', 'jax', 'absl-py>=0.9.0'],
     setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': BuildExt},
     packages = ["simsgeo"],
