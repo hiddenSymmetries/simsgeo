@@ -4,6 +4,9 @@
 #include "xtensor-python/pyarray.hpp"     // Numpy bindings
 typedef xt::pyarray<double> PyArray;
 
+#include "surface.cpp"
+#include "pysurface.cpp"
+
 
 #include "curve.cpp"
 #include "pycurve.cpp"
@@ -61,6 +64,17 @@ template <class PyStelleratorSymmetricCylindricalFourierCurveBase = PyStellerato
 
 PYBIND11_MODULE(simsgeopp, m) {
     xt::import_numpy();
+    py::class_<PySurface, std::shared_ptr<PySurface>, PySurfaceTrampoline<PySurface>>(m, "Surface")
+        .def(py::init<vector<double>,vector<double>>())
+        .def("gamma", &PySurface::gamma)
+        .def("gammadash1", &PySurface::gammadash1)
+        .def("gammadash2", &PySurface::gammadash2)
+        .def("normal", &PySurface::normal)
+        .def("invalidate_cache", &PySurface::invalidate_cache)
+        .def("set_dofs", &PySurface::set_dofs)
+        .def_readonly("quadpoints_phi", &PySurface::quadpoints_phi)
+        .def_readonly("quadpoints_theta", &PySurface::quadpoints_theta);
+
 
     py::class_<PyCurve, std::shared_ptr<PyCurve>, PyCurveTrampoline<PyCurve>>(m, "Curve")
         .def(py::init<vector<double>>())

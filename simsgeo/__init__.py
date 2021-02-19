@@ -6,3 +6,5 @@ from .objectives import *
 from .config import *
 from .biotsavart import *
 from .curve import RotatedCurve
+from .surface import *
+from .magnetic_surface import *

@@ -11,13 +11,8 @@ using std::map;
 using std::logic_error;
 
 #include "xtensor/xarray.hpp"
+#include "cachedarray.hpp"
 
-template<class Array>
-struct CachedArray {
-    Array data;
-    bool status;
-    CachedArray(Array _data) : data(_data), status(false) {}
-};
 
 template<class Array>
 Array curve_vjp_contraction(const Array& mat, const Array& v){

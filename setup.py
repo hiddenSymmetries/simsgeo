@@ -39,7 +39,7 @@ class get_numpy_include(object):
 ext_modules = [
     Extension(
         'simsgeopp',
-        ['simsgeopp/python.cpp', 'simsgeopp/biot_savart.cpp', 'simsgeopp/biot_savart_derivative.cpp'],
+        ['simsgeopp/surface.cpp','simsgeopp/python.cpp', 'simsgeopp/biot_savart.cpp', 'simsgeopp/biot_savart_derivative.cpp'],
         include_dirs=[
             # Path to pybind11 headers
             get_numpy_include(),
@@ -88,7 +88,7 @@ class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
     c_opts = {
         'msvc': ['/EHsc'],
-        'unix': ['-march=native', '-O3'],
+        'unix': ['-march=skylake-avx512', '-O3'],
     }
     l_opts = {
         'msvc': [],
