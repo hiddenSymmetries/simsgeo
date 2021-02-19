@@ -67,7 +67,6 @@ def boozer(i, surface, coilCollection, bs, sa_target):
 
 class JaxCartesianMagneticSurface(JaxCartesianSurface):
     def __init__(self, *args):
-
         if type(args[0]) is JaxCartesianSurface :
             self.__dict__ = args[0].__dict__.copy()
             self.bs = args[1]
@@ -83,15 +82,21 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
             self.label_target = label_target
     
 
-    def toroidal_flux(self, bs, surf):
-        points = surf.get_dofs().reshape( (surf.numquadpoints_phi, surf.numquadpoints_theta,3) )[0,:,:]
-        bs.set_points(points)
-        A = bs.A
-
-        ipdb.set_trace()
-        tf = np.mean(np.sum(A * surf.gammadash2(),axis=1) )
+    def toroidal_flux(self):
+        points = self.apply_symmetries( self.gamma() )
+        self.bs.set_points(points.reshape( (-1,3) ))
+        A = self.bs.A.reshape( (points.shape[0], points.shape[1] , 3) )
+        
+        gammadash2 = np.zeros( points.shape )
+        gammadash2[:,:,0] = points[:,:,0] @ self.D2.T
+        gammadash2[:,:,1] = points[:,:,1] @ self.D2.T
+        gammadash2[:,:,2] = points[:,:,2] @ self.D2.T
+        tf = np.mean( np.sum(A * gammadash2,axis=2) )
         return tf
     
+    def toroidal_flux_dx(self):
+        return 0
+
     def convert2Boozer(self, xyzi):
         def func(in_xyzi, surface, coilCollection, bs, label_target):
             surface.set_dofs( in_xyzi[:-1] )
@@ -113,7 +118,7 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
         print("initial norm is ", norm_res )
         
         # levenberg marquart is more robust than plain vanilla Newton
-        while norm_res > 1e-13:
+        while norm_res > 1e-12:
             rhs,drhs = fdf(xyzi)
             
             update = np.linalg.solve(drhs.T @ drhs + lamb * jnp.eye(drhs.shape[0]), drhs.T @ rhs)

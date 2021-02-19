@@ -120,11 +120,11 @@ class JaxCartesianSurface(JaxSurface):
             D = (2 * np.pi)/(xMax - xMin) * sp.toeplitz(col1, row1)
             return D
         
-        D1 = jnp.array( generate_diff_matrix( self.numquadpoints_phi * self.nfp , 0, 1) )
+        self.D1 = jnp.array( generate_diff_matrix( self.numquadpoints_phi * self.nfp , 0, 1) )
         if self.ss == 1:
-            D2 = jnp.array( generate_diff_matrix( self.numquadpoints_theta * 2 - 1,      0, 1) )
+            self.D2 = jnp.array( generate_diff_matrix( self.numquadpoints_theta * 2 - 1,      0, 1) )
         else:
-            D2 = jnp.array( generate_diff_matrix( self.numquadpoints_theta ,      0, 1) )
+            self.D2 = jnp.array( generate_diff_matrix( self.numquadpoints_theta ,      0, 1) )
 
 
         def dgamma_dphi(in_gamma):
@@ -139,9 +139,9 @@ class JaxCartesianSurface(JaxSurface):
             gamma_out = jnp.zeros( (self.numquadpoints_phi, self.numquadpoints_theta,3 ) )
 
             gamma_sym = self.apply_symmetries( in_gamma_reshaped )
-            gamma_temp = index_update(gamma_temp,index[:,:,0], D1 @ gamma_sym[:,:,0] ) 
-            gamma_temp = index_update(gamma_temp,index[:,:,1], D1 @ gamma_sym[:,:,1] ) 
-            gamma_temp = index_update(gamma_temp,index[:,:,2], D1 @ gamma_sym[:,:,2] ) 
+            gamma_temp = index_update(gamma_temp,index[:,:,0], self.D1 @ gamma_sym[:,:,0] ) 
+            gamma_temp = index_update(gamma_temp,index[:,:,1], self.D1 @ gamma_sym[:,:,1] ) 
+            gamma_temp = index_update(gamma_temp,index[:,:,2], self.D1 @ gamma_sym[:,:,2] ) 
 
             gamma_out = index_update(gamma_out,index[:,:,0], gamma_temp[:self.numquadpoints_phi, :self.numquadpoints_theta, 0] ) 
             gamma_out = index_update(gamma_out,index[:,:,1], gamma_temp[:self.numquadpoints_phi, :self.numquadpoints_theta, 1] ) 
@@ -159,9 +159,9 @@ class JaxCartesianSurface(JaxSurface):
             gamma_out = jnp.zeros( (self.numquadpoints_phi, self.numquadpoints_theta,3 ) )
             
             gamma_sym = self.apply_symmetries( in_gamma_reshaped )
-            gamma_temp = index_update(gamma_temp,index[:,:,0], gamma_sym[:,:,0] @ D2.T ) 
-            gamma_temp = index_update(gamma_temp,index[:,:,1], gamma_sym[:,:,1] @ D2.T ) 
-            gamma_temp = index_update(gamma_temp,index[:,:,2], gamma_sym[:,:,2] @ D2.T ) 
+            gamma_temp = index_update(gamma_temp,index[:,:,0], gamma_sym[:,:,0] @ self.D2.T ) 
+            gamma_temp = index_update(gamma_temp,index[:,:,1], gamma_sym[:,:,1] @ self.D2.T ) 
+            gamma_temp = index_update(gamma_temp,index[:,:,2], gamma_sym[:,:,2] @ self.D2.T ) 
             
             gamma_out = index_update(gamma_out,index[:,:,0], gamma_temp[:self.numquadpoints_phi, :self.numquadpoints_theta, 0] ) 
             gamma_out = index_update(gamma_out,index[:,:,1], gamma_temp[:self.numquadpoints_phi, :self.numquadpoints_theta, 1] ) 
