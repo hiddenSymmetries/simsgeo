@@ -66,17 +66,29 @@ def boozer(i, surface, coilCollection, bs, sa_target):
 
 
 class JaxCartesianMagneticSurface(JaxCartesianSurface):
-    def __init__(self, quadpoints_phi, quadpoints_theta, nfp, ss, flip, label_target, bs, cc):
-        super().__init__(quadpoints_phi, quadpoints_theta, nfp, ss, flip)
-        self.bs = bs
-        self.cc = cc
-        self.label_target = label_target
+    def __init__(self, *args):
 
+        if type(args[0]) is JaxCartesianSurface :
+            self.__dict__ = args[0].__dict__.copy()
+            self.bs = args[1]
+            self.cc = args[2]
+            self.label_target = args[3]
+            self.iota = args[4]
+            sgpp.Surface.__init__(self, args[0].quadpoints_phi, args[0].quadpoints_theta)
+        else:
+            quadpoints_phi, quadpoints_theta, nfp, ss, flip, label_target, bs, cc = args
+            super().__init__(quadpoints_phi, quadpoints_theta, nfp, ss, flip)
+            self.bs = bs
+            self.cc = cc
+            self.label_target = label_target
+    
 
     def toroidal_flux(self, bs, surf):
         points = surf.get_dofs().reshape( (surf.numquadpoints_phi, surf.numquadpoints_theta,3) )[0,:,:]
         bs.set_points(points)
         A = bs.A
+
+        ipdb.set_trace()
         tf = np.mean(np.sum(A * surf.gammadash2(),axis=1) )
         return tf
     
@@ -121,17 +133,17 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
             print("norm_res ", norm_res , "lambda ", lamb)
         return xyzi
     
-#    def updateBoozer(self):
-#        xyzi = self.get_dofs()
-#        xyzi = self.convert2Boozer(xyzi)
-#        super().set_dofs(xyzi[:-1])
-#        self.iota = xyzi[-1]
-#        self.invalidate_cache()
-#
-#
-#    def get_dofs(self):
-#        xyz = super().get_dofs()
-#        return np.concatenate( (xyz,self.iota) )
+    def updateBoozer(self):
+        xyzi = self.get_dofs()
+        xyzi = self.convert2Boozer(xyzi)
+        super().set_dofs(xyzi[:-1])
+        self.iota = xyzi[-1]
+        self.invalidate_cache()
+
+
+    def get_dofs(self):
+        xyz = super().get_dofs()
+        return np.concatenate( (xyz,np.array([self.iota]) ) )
 
     def set_dofs(self, xyzi):
         xyzi = self.convert2Boozer(xyzi)

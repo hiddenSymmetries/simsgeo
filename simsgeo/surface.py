@@ -70,7 +70,8 @@ class JaxSurface(sgpp.Surface, Surface):
         # implement the differentiation matrices
 
     def gamma_impl(self, gamma):
-        gamma[:,:,:] = self.gamma_jax(self.get_dofs())
+        dofs = self.get_dofs()[:3 * self.numquadpoints_phi * self.numquadpoints_theta]
+        gamma[:,:,:] = self.gamma_jax(dofs)
     def gammadash1_impl(self, dgamma_dphi):
         dgamma_dphi[:,:,:] = (self.Dphi @ self.gamma().flatten()   ).reshape( self.gamma().shape ) 
     def gammadash2_impl(self, dgamma_dtheta):
@@ -284,7 +285,7 @@ class JaxCartesianSurface(JaxSurface):
         gg[:,:,2] = gg_z[:Nphi_updated, :Ntheta_updated]
         
 
-        surf = JaxCartesianSurface( phi, theta , self.nfp)
+        surf = JaxCartesianSurface( phi, theta , self.nfp, self.ss, self.flip)
         surf.set_dofs( gg.flatten() )
         return surf
 
