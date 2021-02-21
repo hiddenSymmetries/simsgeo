@@ -50,7 +50,7 @@ ext_modules = [
             os.path.join('.', 'xtensor', 'include'),
             os.path.join('.', 'xtensor-python', 'include'),
             os.path.join('.', 'xsimd', 'include'),
-            os.path.join('.', 'blaze')
+            os.path.join('.', 'eigen')
             # os.path.join('.', 'simsgeopp'),
         ],
         language='c++'
