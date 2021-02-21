@@ -1,9 +1,8 @@
 #include "biot_savart.h"
 
-template<class T>
-void biot_savart_B_only_vjp_impl(vector_type& pointsx, vector_type& pointsy, vector_type& pointsz, T& gamma, T& dgamma_by_dphi, T& v, T& res_gamma, T& res_dgamma_by_dphi, T& vgrad, T& res_grad_gamma, T& res_grad_dgamma_by_dphi) {
+void biot_savart_B_only_vjp_impl(Vector& pointsx, Vector& pointsy, Vector& pointsz, RefMatrix& gamma, RefMatrix& dgamma_by_dphi, RefMatrix& v, RefMatrix res_gamma, RefMatrix res_dgamma_by_dphi, MapTensor3& vgrad, RefMatrix res_grad_gamma, RefMatrix res_grad_dgamma_by_dphi) {
     int num_points         = pointsx.size();
-    int num_quad_points    = gamma.shape(0);
+    int num_quad_points    = gamma.rows();
     constexpr int simd_size = xsimd::simd_type<double>::size;
     for(int i = 0; i < num_points-num_points%simd_size; i += simd_size) {
         Vec3dSimd point_i = Vec3dSimd(&(pointsx[i]), &(pointsy[i]), &(pointsz[i]));
@@ -126,13 +125,12 @@ void biot_savart_B_only_vjp_impl(vector_type& pointsx, vector_type& pointsy, vec
 }
 
 
-template void biot_savart_B_only_vjp_impl<xt::xarray<double>>(vector_type&, vector_type&, vector_type&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&);
-
-void biot_savart_by_dcoilcoeff_all_vjp(Array& points, vector<Array>& gammas, vector<Array>& dgamma_by_dphis, vector<double>& currents, Array& v, vector<Array>& res_gamma, vector<Array>& res_dgamma_by_dphi, Array& vgrad, vector<Array>& res_grad_gamma, vector<Array>& res_grad_dgamma_by_dphi) {
-    auto pointsx = vector_type(points.shape(0), 0);
-    auto pointsy = vector_type(points.shape(0), 0);
-    auto pointsz = vector_type(points.shape(0), 0);
-    for (int i = 0; i < points.shape(0); ++i) {
+void biot_savart_by_dcoilcoeff_all_vjp(RefMatrix& points, vector<RefMatrix>& gammas, vector<RefMatrix>& dgamma_by_dphis, vector<double>& currents, RefMatrix& v, vector<RefMatrix>& res_gamma, vector<RefMatrix>& res_dgamma_by_dphi, MapTensor3& vgrad, vector<RefMatrix>& res_grad_gamma, vector<RefMatrix>& res_grad_dgamma_by_dphi) {
+    auto num_points = points.rows();
+    Vector pointsx = points.col(0);
+    Vector pointsy = points.col(1);
+    Vector pointsz = points.col(2);
+    for (int i = 0; i < num_points; ++i) {
         pointsx[i] = points(i, 0);
         pointsy[i] = points(i, 1);
         pointsz[i] = points(i, 2);
@@ -142,10 +140,10 @@ void biot_savart_by_dcoilcoeff_all_vjp(Array& points, vector<Array>& gammas, vec
 
     #pragma omp parallel for
     for(int i=0; i<num_coils; i++) {
-        biot_savart_B_only_vjp_impl<Array>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i],
+        biot_savart_B_only_vjp_impl(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i],
                 v, res_gamma[i], res_dgamma_by_dphi[i],
                 vgrad, res_grad_gamma[i], res_grad_dgamma_by_dphi[i]);
-        double fak = (currents[i] * 1e-7/gammas[i].shape(0));
+        double fak = (currents[i] * 1e-7/gammas[i].rows());
         res_gamma[i] *= fak;
         res_dgamma_by_dphi[i] *= fak;
         res_grad_gamma[i] *= fak;
@@ -153,39 +151,38 @@ void biot_savart_by_dcoilcoeff_all_vjp(Array& points, vector<Array>& gammas, vec
     }
 }
 
-void biot_savart_by_dcoilcoeff_all_vjp_full(Array& points, vector<Array>& gammas, vector<Array>& dgamma_by_dphis, vector<double>& currents, Array& v, Array& vgrad, vector<Array>& dgamma_by_dcoeffs, vector<Array>& d2gamma_by_dphidcoeffs, vector<Array>& res_B, vector<Array>& res_dB){
-    auto pointsx = vector_type(points.shape(0), 0);
-    auto pointsy = vector_type(points.shape(0), 0);
-    auto pointsz = vector_type(points.shape(0), 0);
-    for (int i = 0; i < points.shape(0); ++i) {
-        pointsx[i] = points(i, 0);
-        pointsy[i] = points(i, 1);
-        pointsz[i] = points(i, 2);
-    }
+void biot_savart_by_dcoilcoeff_all_vjp_full(RefMatrix& points, vector<RefMatrix>& gammas, vector<RefMatrix>& dgamma_by_dphis, vector<double>& currents, RefMatrix& v, MapTensor3& vgrad, vector<MapTensor3>& dgamma_by_dcoeffs, vector<MapTensor3>& d2gamma_by_dphidcoeffs, vector<RefVector>& res_B, vector<RefVector>& res_dB){
+
+    Vector pointsx = points.col(0);
+    Vector pointsy = points.col(1);
+    Vector pointsz = points.col(2);
 
     int num_coils  = gammas.size();
 
-    auto res_gamma = std::vector<Array>(num_coils, Array());
-    auto res_dgamma_by_dphi = std::vector<Array>(num_coils, Array());
-    auto res_grad_gamma = std::vector<Array>(num_coils, Array());
-    auto res_grad_dgamma_by_dphi = std::vector<Array>(num_coils, Array());
+    auto res_gamma = std::vector<Matrix>();
+    auto res_dgamma_by_dphi = std::vector<Matrix>();
+    auto res_grad_gamma = std::vector<Matrix>();
+    auto res_grad_dgamma_by_dphi = std::vector<Matrix>();
+    res_gamma.reserve(num_coils);
+    res_dgamma_by_dphi.reserve(num_coils);
+    res_grad_gamma.reserve(num_coils);
+    res_grad_dgamma_by_dphi.reserve(num_coils);
 
-    // Don't understand why, but in parallel this loop segfaults...
     for(int i=0; i<num_coils; i++) {
-        int num_points = gammas[i].shape(0);
-        res_gamma[i] = xt::zeros<double>({num_points, 3});
-        res_dgamma_by_dphi[i] = xt::zeros<double>({num_points, 3});
-        res_grad_gamma[i] = xt::zeros<double>({num_points, 3});
-        res_grad_dgamma_by_dphi[i] = xt::zeros<double>({num_points, 3});
+        int num_points = gammas[i].rows();
+        res_gamma.push_back(Matrix::Zero(num_points, 3));
+        res_dgamma_by_dphi.push_back(Matrix::Zero(num_points, 3));
+        res_grad_gamma.push_back(Matrix::Zero(num_points, 3));
+        res_grad_dgamma_by_dphi.push_back(Matrix::Zero(num_points, 3));
     }
 
     #pragma omp parallel for
     for(int i=0; i<num_coils; i++) {
-        biot_savart_B_only_vjp_impl<Array>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i],
+        biot_savart_B_only_vjp_impl(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i],
                 v, res_gamma[i], res_dgamma_by_dphi[i],
                 vgrad, res_grad_gamma[i], res_grad_dgamma_by_dphi[i]);
-        int numcoeff = dgamma_by_dcoeffs[i].shape(2);
-        for (int j = 0; j < dgamma_by_dcoeffs[i].shape(0); ++j) {
+        int numcoeff = dgamma_by_dcoeffs[i].dimension(2);
+        for (int j = 0; j < dgamma_by_dcoeffs[i].dimension(0); ++j) {
             for (int l = 0; l < 3; ++l) {
                 auto t1 = res_gamma[i](j, l);
                 auto t2 = res_dgamma_by_dphi[i](j, l);
@@ -197,7 +194,7 @@ void biot_savart_by_dcoilcoeff_all_vjp_full(Array& points, vector<Array>& gammas
                 }
             }
         }
-        double fak = (currents[i] * 1e-7/gammas[i].shape(0));
+        double fak = (currents[i] * 1e-7/gammas[i].rows());
         res_B[i] *= fak;
         res_dB[i] *= fak;
     }

@@ -1,18 +1,19 @@
 #pragma once
 
+#include <iostream>
 
-#include "xtensor/xio.hpp"
-#include "xtensor/xarray.hpp"
-#include "xtensor/xmath.hpp"
-#include "xtensor-python/pyarray.hpp"     // Numpy bindings
-#include <tuple>
-
-
-
-typedef xt::pyarray<double> Array;
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <unsupported/Eigen/CXX11/Tensor>
 typedef Eigen::Vector3d Vec3d;
+typedef Eigen::VectorXd Vector;
+typedef Eigen::MatrixXd Matrix;
+typedef Eigen::Tensor<double, 3> Tensor3;
+typedef Eigen::Tensor<double, 4> Tensor4;
+typedef Eigen::TensorMap<Tensor3> MapTensor3;
+typedef Eigen::TensorMap<Tensor4> MapTensor4;
+typedef Eigen::Ref<Matrix, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> RefMatrix;
+typedef Eigen::Ref<Vector, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> RefVector;
 
 
 #include <vector>
@@ -20,15 +21,13 @@ using std::vector;
 
 #include "xsimd/xsimd.hpp"
 namespace xs = xsimd;
-using vector_type = std::vector<double, xs::aligned_allocator<double, XSIMD_DEFAULT_ALIGNMENT>>;
-using simd_t = xs::simd_type<double>;
-#include <optional>
-
+using AlignedVector = std::vector<double, xs::aligned_allocator<double, XSIMD_DEFAULT_ALIGNMENT>>;
+using SIMDVector = xs::simd_type<double>;
 
 struct Vec3dSimd {
-    simd_t x;
-    simd_t y;
-    simd_t z;
+    SIMDVector x;
+    SIMDVector y;
+    SIMDVector z;
 
     Vec3dSimd() : x(0.), y(0.), z(0.){
     }
@@ -39,7 +38,7 @@ struct Vec3dSimd {
     Vec3dSimd(Vec3d xyz) : x(xyz[0]), y(xyz[1]), z(xyz[2]){
     }
 
-    Vec3dSimd(const simd_t& x_, const simd_t& y_, const simd_t& z_) : x(x_), y(y_), z(z_) {
+    Vec3dSimd(const SIMDVector& x_, const SIMDVector& y_, const SIMDVector& z_) : x(x_), y(y_), z(z_) {
     }
 
     Vec3dSimd(double* xptr, double* yptr, double *zptr){
@@ -54,7 +53,7 @@ struct Vec3dSimd {
         z.store_aligned(zptr);
     }
 
-    simd_t& operator[] (int i){
+    SIMDVector& operator[] (int i){
         if(i==0) {
             return x;
         }else if(i==1){
@@ -106,7 +105,7 @@ struct Vec3dSimd {
         return lhs;
     }
 
-    friend Vec3dSimd operator*(Vec3dSimd lhs, const simd_t& rhs) {
+    friend Vec3dSimd operator*(Vec3dSimd lhs, const SIMDVector& rhs) {
         lhs.x *= rhs;
         lhs.y *= rhs;
         lhs.z *= rhs;
@@ -115,19 +114,19 @@ struct Vec3dSimd {
 };
 
 
-inline simd_t inner(const Vec3dSimd& a, const Vec3dSimd& b){
+inline SIMDVector inner(const Vec3dSimd& a, const Vec3dSimd& b){
     return a.x*b.x+a.y*b.y+a.z*b.z;
 }
 
-inline simd_t inner(const Vec3d& b, const Vec3dSimd& a){
+inline SIMDVector inner(const Vec3d& b, const Vec3dSimd& a){
     return a.x*b[0]+a.y*b[1]+a.z*b[2];
 }
 
-inline simd_t inner(const Vec3dSimd& a, const Vec3d& b){
+inline SIMDVector inner(const Vec3dSimd& a, const Vec3d& b){
     return a.x*b[0]+a.y*b[1]+a.z*b[2];
 }
 
-inline simd_t inner(int i, Vec3dSimd& a){
+inline SIMDVector inner(int i, Vec3dSimd& a){
     if(i==0)
         return a.x;
     else if(i==1)
@@ -168,33 +167,30 @@ inline Vec3dSimd cross(Vec3d& a, Vec3dSimd& b){
 
 inline Vec3dSimd cross(Vec3dSimd& a, int i){
     if(i==0)
-        return Vec3dSimd(simd_t(0.), a.z, -a.y);
+        return Vec3dSimd(SIMDVector(0.), a.z, -a.y);
     else if(i == 1)
-        return Vec3dSimd(-a.z, simd_t(0.), a.x);
+        return Vec3dSimd(-a.z, SIMDVector(0.), a.x);
     else
-        return Vec3dSimd(a.y, -a.x, simd_t(0.));
+        return Vec3dSimd(a.y, -a.x, SIMDVector(0.));
 }
 
 inline Vec3dSimd cross(int i, Vec3dSimd& b){
     if(i==0)
-        return Vec3dSimd(simd_t(0.), -b.z, b.y);
+        return Vec3dSimd(SIMDVector(0.), -b.z, b.y);
     else if(i == 1)
-        return Vec3dSimd(b.z, simd_t(0.), -b.x);
+        return Vec3dSimd(b.z, SIMDVector(0.), -b.x);
     else
-        return Vec3dSimd(-b.y, b.x, simd_t(0.));
+        return Vec3dSimd(-b.y, b.x, SIMDVector(0.));
 }
 
-inline simd_t normsq(Vec3dSimd& a){
+inline SIMDVector normsq(Vec3dSimd& a){
     return a.x*a.x+a.y*a.y+a.z*a.z;
 }
 
-template<class T, int derivs>
-void biot_savart_kernel(vector_type& pointsx, vector_type& pointsy, vector_type& pointsz, T& gamma, T& dgamma_by_dphi, T& B, std::optional<T>& dB_by_dX, std::optional<T>& d2B_by_dXdX);
-void biot_savart(Array& points, vector<Array>& gammas, vector<Array>& dgamma_by_dphis, vector<Array>& B, vector<Array>& dB_by_dX, vector<Array>& d2B_by_dXdX);
+void biot_savart(Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B);
+void biot_savart(Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B, vector<MapTensor3>& dB_by_dX);
+void biot_savart(Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B, vector<MapTensor3>& dB_by_dX, vector<MapTensor4>& d2B_by_dXdX);
 
 
 
-template<class T>
-void biot_savart_B_only_vjp_impl(vector_type& pointsx, vector_type& pointsy, vector_type& pointsz, T& gamma, T& dgamma_by_dphi, T& v, T& res_gamma, T& res_dgamma_by_dphi, T& vgrad, T& res_grad_gamma, T& res_grad_dgamma_by_dphi);
-void biot_savart_by_dcoilcoeff_all_vjp(Array& points, vector<Array>& gammas, vector<Array>& dgamma_by_dphis, vector<double>& currents, Array& v, vector<Array>& res_gamma, vector<Array>& res_dgamma_by_dphi, Array& vgrad, vector<Array>& res_grad_gamma, vector<Array>& res_grad_dgamma_by_dphi);
-void biot_savart_by_dcoilcoeff_all_vjp_full(Array& points, vector<Array>& gammas, vector<Array>& dgamma_by_dphis, vector<double>& currents, Array& v, Array& vgrad, vector<Array>& dgamma_by_dcoeffs, vector<Array>& d2gamma_by_dphidcoeffs, vector<Array>& res_B, vector<Array>& res_dB);
+void biot_savart_by_dcoilcoeff_all_vjp_full(RefMatrix& points, vector<RefMatrix>& gammas, vector<RefMatrix>& dgamma_by_dphis, vector<double>& currents, RefMatrix& v, MapTensor3& vgrad, vector<MapTensor3>& dgamma_by_dcoeffs, vector<MapTensor3>& d2gamma_by_dphidcoeffs, vector<RefVector>& res_B, vector<RefVector>& res_dB);

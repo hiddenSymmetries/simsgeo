@@ -1,9 +1,9 @@
 #include "biot_savart.h"
 
-template<class T, int derivs>
-void biot_savart_kernel(vector_type& pointsx, vector_type& pointsy, vector_type& pointsz, T& gamma, T& dgamma_by_dphi, T& B, std::optional<T>& dB_by_dX, std::optional<T>& d2B_by_dXdX) {
+template<int derivs>
+void biot_savart_kernel(Vector& pointsx, Vector& pointsy, Vector& pointsz, Matrix& gamma, Matrix& dgamma_by_dphi, RefMatrix& B, MapTensor3& dB_by_dX, MapTensor4 d2B_by_dXdX) {
     int num_points         = pointsx.size();
-    int num_quad_points    = gamma.shape(0);
+    int num_quad_points    = gamma.rows();
     constexpr int simd_size = xsimd::simd_type<double>::size;
     auto dB_dX_i = vector<Vec3dSimd, xs::aligned_allocator<Vec3dSimd, XSIMD_DEFAULT_ALIGNMENT>>();
     auto d2B_dXdX_i = vector<Vec3dSimd, xs::aligned_allocator<Vec3dSimd, XSIMD_DEFAULT_ALIGNMENT>>();
@@ -80,21 +80,21 @@ void biot_savart_kernel(vector_type& pointsx, vector_type& pointsy, vector_type&
             B(i+j, 2) = B_i.z[j];
             if constexpr(derivs > 0) {
                 for(int k=0; k<3; k++) {
-                    (*dB_by_dX)(i+j, k, 0) = dB_dX_i[k].x[j];
-                    (*dB_by_dX)(i+j, k, 1) = dB_dX_i[k].y[j];
-                    (*dB_by_dX)(i+j, k, 2) = dB_dX_i[k].z[j];
+                    dB_by_dX(i+j, k, 0) = dB_dX_i[k].x[j];
+                    dB_by_dX(i+j, k, 1) = dB_dX_i[k].y[j];
+                    dB_by_dX(i+j, k, 2) = dB_dX_i[k].z[j];
                 }
             }
             if constexpr(derivs > 1) {
                 for(int k1=0; k1<3; k1++) {
                     for(int k2=0; k2<=k1; k2++) {
-                        (*d2B_by_dXdX)(i+j, k1, k2, 0) = d2B_dXdX_i[3*k1 + k2].x[j];
-                        (*d2B_by_dXdX)(i+j, k1, k2, 1) = d2B_dXdX_i[3*k1 + k2].y[j];
-                        (*d2B_by_dXdX)(i+j, k1, k2, 2) = d2B_dXdX_i[3*k1 + k2].z[j];
+                        d2B_by_dXdX(i+j, k1, k2, 0) = d2B_dXdX_i[3*k1 + k2].x[j];
+                        d2B_by_dXdX(i+j, k1, k2, 1) = d2B_dXdX_i[3*k1 + k2].y[j];
+                        d2B_by_dXdX(i+j, k1, k2, 2) = d2B_dXdX_i[3*k1 + k2].z[j];
                         if(k2 < k1){
-                            (*d2B_by_dXdX)(i+j, k2, k1, 0) = d2B_dXdX_i[3*k1 + k2].x[j];
-                            (*d2B_by_dXdX)(i+j, k2, k1, 1) = d2B_dXdX_i[3*k1 + k2].y[j];
-                            (*d2B_by_dXdX)(i+j, k2, k1, 2) = d2B_dXdX_i[3*k1 + k2].z[j];
+                            d2B_by_dXdX(i+j, k2, k1, 0) = d2B_dXdX_i[3*k1 + k2].x[j];
+                            d2B_by_dXdX(i+j, k2, k1, 1) = d2B_dXdX_i[3*k1 + k2].y[j];
+                            d2B_by_dXdX(i+j, k2, k1, 2) = d2B_dXdX_i[3*k1 + k2].z[j];
                         }
                     }
                 }
@@ -123,12 +123,12 @@ void biot_savart_kernel(vector_type& pointsx, vector_type& pointsy, vector_type&
                 for(int k=0; k<3; k++) {
                     Vec3d ek = Vec3d{0., 0., 0.};
                     ek[k] = 1.0;
-                    (*dB_by_dX)(i, k, 0) += temp[0];
-                    (*dB_by_dX)(i, k, 1) += temp[1];
-                    (*dB_by_dX)(i, k, 2) += temp[2];
                     Vec3d numerator1 = cross(dgamma_by_dphi_j, ek) * norm_diff;
                     Vec3d numerator2 = three_dgamma_by_dphi_cross_diff_by_norm_diff * diff[k];
                     Vec3d temp = (numerator1-numerator2) * norm_diff_4_inv;
+                    dB_by_dX(i, k, 0) += temp[0];
+                    dB_by_dX(i, k, 1) += temp[1];
+                    dB_by_dX(i, k, 2) += temp[2];
                 }
                 if constexpr(derivs > 1) {
                     double norm_diff_5_inv = norm_diff_4_inv/norm_diff;
@@ -147,10 +147,10 @@ void biot_savart_kernel(vector_type& pointsx, vector_type& pointsy, vector_type&
                             if(k1 == k2) {
                                 term4 = -3 * norm_diff_5_inv * dgamma_by_dphi_j_cross_diff;
                             }
-                            (*d2B_by_dXdX)(i, k1, k2, 0) += temp[0];
-                            (*d2B_by_dXdX)(i, k1, k2, 1) += temp[1];
-                            (*d2B_by_dXdX)(i, k1, k2, 2) += temp[2];
                             Vec3d temp = (term1 + term2 + term3 + term4);
+                            d2B_by_dXdX(i, k1, k2, 0) += temp[0];
+                            d2B_by_dXdX(i, k1, k2, 1) += temp[1];
+                            d2B_by_dXdX(i, k1, k2, 2) += temp[2];
                         }
                     }
                 }
@@ -160,40 +160,50 @@ void biot_savart_kernel(vector_type& pointsx, vector_type& pointsy, vector_type&
     double fak = (1e-7/num_quad_points);
     B *= fak;
     if constexpr(derivs > 0)
-        (*dB_by_dX) *= fak;
+        dB_by_dX *= dB_by_dX.constant(fak);
     if constexpr(derivs > 1)
-        (*d2B_by_dXdX) *= fak;
+        d2B_by_dXdX *= d2B_by_dXdX.constant(fak);
 }
 
-template void biot_savart_kernel<xt::xarray<double>, 0>(vector_type&, vector_type&, vector_type&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, std::optional<xt::xarray<double>>&, std::optional<xt::xarray<double>>&);
-template void biot_savart_kernel<xt::xarray<double>, 1>(vector_type&, vector_type&, vector_type&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, std::optional<xt::xarray<double>>&, std::optional<xt::xarray<double>>&);
-template void biot_savart_kernel<xt::xarray<double>, 2>(vector_type&, vector_type&, vector_type&, xt::xarray<double>&, xt::xarray<double>&, xt::xarray<double>&, std::optional<xt::xarray<double>>&, std::optional<xt::xarray<double>>&);
+template void biot_savart_kernel<0>(Vector&, Vector&, Vector&, Matrix&, Matrix&, RefMatrix&, MapTensor3&, MapTensor4);
+template void biot_savart_kernel<1>(Vector&, Vector&, Vector&, Matrix&, Matrix&, RefMatrix&, MapTensor3&, MapTensor4);
+template void biot_savart_kernel<2>(Vector&, Vector&, Vector&, Matrix&, Matrix&, RefMatrix&, MapTensor3&, MapTensor4);
 
 
-void biot_savart(Array& points, vector<Array>& gammas, vector<Array>& dgamma_by_dphis, vector<Array>& B, vector<Array>& dB_by_dX, vector<Array>& d2B_by_dXdX) {
-    auto pointsx = vector_type(points.shape(0), 0);
-    auto pointsy = vector_type(points.shape(0), 0);
-    auto pointsz = vector_type(points.shape(0), 0);
-    int num_points = points.shape(0);
-    for (int i = 0; i < num_points; ++i) {
-        pointsx[i] = points(i, 0);
-        pointsy[i] = points(i, 1);
-        pointsz[i] = points(i, 2);
+void biot_savart(Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B) {
+    Vector pointsx = points.col(0);
+    Vector pointsy = points.col(1);
+    Vector pointsz = points.col(2);
+    int num_coils  = gammas.size();
+    MapTensor3 temp3(NULL, 0, 0, 0);
+    MapTensor4 temp4(NULL, 0, 0, 0, 0);
+#pragma omp parallel for
+    for(int i=0; i<num_coils; i++) {
+        biot_savart_kernel<0>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i], B[i], temp3, temp4);
     }
+}
+
+void biot_savart(Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B, vector<MapTensor3>& dB_by_dX) {
+    Vector pointsx = points.col(0);
+    Vector pointsy = points.col(1);
+    Vector pointsz = points.col(2);
+    int num_coils  = gammas.size();
+    MapTensor4 temp4(NULL, 0, 0, 0, 0);
+#pragma omp parallel for
+    for(int i=0; i<num_coils; i++) {
+        biot_savart_kernel<1>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i], B[i], dB_by_dX[i], temp4);
+    }
+}
+
+void biot_savart(Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B, vector<MapTensor3>& dB_by_dX, vector<MapTensor4>& d2B_by_dXdX) {
+    Vector pointsx = points.col(0);
+    Vector pointsy = points.col(1);
+    Vector pointsz = points.col(2);
     int num_coils  = gammas.size();
 
 #pragma omp parallel for
     for(int i=0; i<num_coils; i++) {
-        auto _dB_by_dX = (dB_by_dX.size() <= i) ? std::nullopt : std::optional(std::move(dB_by_dX[i]));
-        auto _d2B_by_dXdX = (d2B_by_dXdX.size() <= i) ? std::nullopt : std::optional(std::move(d2B_by_dXdX[i]));
-        if(_d2B_by_dXdX)
-            biot_savart_kernel<Array, 2>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i], B[i], _dB_by_dX, _d2B_by_dXdX);
-        else {
-            if(_dB_by_dX) 
-                biot_savart_kernel<Array, 1>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i], B[i], _dB_by_dX, _d2B_by_dXdX);
-            else
-                biot_savart_kernel<Array, 0>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i], B[i], _dB_by_dX, _d2B_by_dXdX);
-        }
+        biot_savart_kernel<2>(pointsx, pointsy, pointsz, gammas[i], dgamma_by_dphis[i], B[i], dB_by_dX[i], d2B_by_dXdX[i]);
     }
 }
 

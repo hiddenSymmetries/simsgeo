@@ -1,5 +1,6 @@
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
+#include "pybind11/eigen.h"
 #define FORCE_IMPORT_ARRAY
 #include "xtensor-python/pyarray.hpp"     // Numpy bindings
 typedef xt::pyarray<double> PyArray;
@@ -13,9 +14,14 @@ typedef FourierCurve<PyArray> PyFourierCurve;
 #include "magneticaxis.cpp"
 typedef StelleratorSymmetricCylindricalFourierCurve<PyArray> PyStelleratorSymmetricCylindricalFourierCurve;
 
+#include <Eigen/Core>
+#include <Eigen/Dense>
+#include <unsupported/Eigen/CXX11/Tensor>
+
 #include "biot_savart.h"
 
 namespace py = pybind11;
+typedef py::array_t<double, py::array::f_style | py::array::forcecast> pyarrayf;
 
 template <class PyFourierCurveBase = PyFourierCurve> class PyFourierCurveTrampoline : public PyCurveTrampoline<PyFourierCurveBase> {
     public:
@@ -150,8 +156,79 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def_readonly("quadpoints", &PyStelleratorSymmetricCylindricalFourierCurve::quadpoints)
         .def_property_readonly("nfp", &PyStelleratorSymmetricCylindricalFourierCurve::get_nfp);
 
-    m.def("biot_savart", &biot_savart);
-    m.def("biot_savart_by_dcoilcoeff_all_vjp_full", &biot_savart_by_dcoilcoeff_all_vjp_full);
+    m.def("biot_savart_1", [](Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B)
+            {
+            biot_savart(points, gammas, dgamma_by_dphis, B);
+            });
+
+    m.def("biot_savart_2", [](Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B, vector<pyarrayf>& py_dB_by_dX){
+                auto dB_by_dX = std::vector<MapTensor3>();
+                for (int i = 0; i < py_dB_by_dX.size(); ++i) {
+                    py::buffer_info buf = py_dB_by_dX[i].request();
+                    if (buf.ndim != 3) {
+                        throw std::runtime_error("Number of dimensions must be 3.");
+                    }
+                    // Without copying, represent the incoming numpy array as an Eigen::Tensor:
+                    dB_by_dX.push_back(Eigen::TensorMap<Tensor3>(static_cast<double*>(buf.ptr), buf.shape[0], buf.shape[1], buf.shape[2]));
+
+                }
+                biot_savart(points, gammas, dgamma_by_dphis, B, dB_by_dX);
+            });
+    m.def("biot_savart_3", [](Matrix& points, vector<Matrix>& gammas, vector<Matrix>& dgamma_by_dphis, vector<RefMatrix>& B, vector<pyarrayf>& py_dB_by_dX, vector<pyarrayf>& py_d2B_by_dXdX){
+                auto dB_by_dX = std::vector<MapTensor3>();
+                for (int i = 0; i < py_dB_by_dX.size(); ++i) {
+                    py::buffer_info buf = py_dB_by_dX[i].request();
+                    if (buf.ndim != 3) {
+                        throw std::runtime_error("Number of dimensions must be 3.");
+                    }
+                    // Without copying, represent the incoming numpy array as an Eigen::Tensor:
+                    dB_by_dX.push_back(Eigen::TensorMap<Tensor3>(static_cast<double*>(buf.ptr), buf.shape[0], buf.shape[1], buf.shape[2]));
+
+                }
+                auto d2B_by_dXdX = std::vector<MapTensor4>();
+                for (int i = 0; i < py_d2B_by_dXdX.size(); ++i) {
+                    py::buffer_info buf = py_d2B_by_dXdX[i].request();
+                    if (buf.ndim != 4) {
+                        throw std::runtime_error("Number of dimensions must be 4.");
+                    }
+                    // Without copying, represent the incoming numpy array as an Eigen::Tensor:
+                    d2B_by_dXdX.push_back(Eigen::TensorMap<Tensor4>(static_cast<double*>(buf.ptr), buf.shape[0], buf.shape[1], buf.shape[2], buf.shape[3]));
+
+                }
+                biot_savart(points, gammas, dgamma_by_dphis, B, dB_by_dX, d2B_by_dXdX);
+            });
+    //m.def("biot_savart_by_dcoilcoeff_all_vjp_full", &biot_savart_by_dcoilcoeff_all_vjp_full);
+    m.def("biot_savart_by_dcoilcoeff_all_vjp_full", 
+            [](RefMatrix& points, vector<RefMatrix>& gammas, vector<RefMatrix>& dgamma_by_dphis, vector<double>& currents, RefMatrix& v, pyarrayf& py_vgrad, vector<pyarrayf>& py_dgamma_by_dcoeffs, vector<pyarrayf>& py_d2gamma_by_dphidcoeffs, vector<RefVector>& res_B, vector<RefVector>& res_dB)
+            {
+                py::buffer_info buf = py_vgrad.request();
+                if (buf.ndim != 3) {
+                    throw std::runtime_error("Number of dimensions must be 3.");
+                }
+                auto vgrad = Eigen::TensorMap<Tensor3>(static_cast<double*>(buf.ptr), buf.shape[0], buf.shape[1], buf.shape[2]);
+
+                auto dgamma_by_dcoeffs = std::vector<MapTensor3>();
+                for (int i = 0; i < py_dgamma_by_dcoeffs.size(); ++i) {
+                    py::buffer_info buf = py_dgamma_by_dcoeffs[i].request();
+                    if (buf.ndim != 3) {
+                        throw std::runtime_error("Number of dimensions must be 3.");
+                    }
+                    // Without copying, represent the incoming numpy array as an Eigen::Tensor:
+                    dgamma_by_dcoeffs.push_back(Eigen::TensorMap<Tensor3>(static_cast<double*>(buf.ptr), buf.shape[0], buf.shape[1], buf.shape[2]));
+
+                }
+
+                auto d2gamma_by_dphidcoeffs = std::vector<MapTensor3>();
+                for (int i = 0; i < py_d2gamma_by_dphidcoeffs.size(); ++i) {
+                    py::buffer_info buf = py_d2gamma_by_dphidcoeffs[i].request();
+                    if (buf.ndim != 3) {
+                        throw std::runtime_error("Number of dimensions must be 3.");
+                    }
+                    // Without copying, represent the incoming numpy array as an Eigen::Tensor:
+                    d2gamma_by_dphidcoeffs.push_back(Eigen::TensorMap<Tensor3>(static_cast<double*>(buf.ptr), buf.shape[0], buf.shape[1], buf.shape[2]));
+                }
+            return biot_savart_by_dcoilcoeff_all_vjp_full(points, gammas, dgamma_by_dphis, currents, v, vgrad, dgamma_by_dcoeffs, d2gamma_by_dphidcoeffs, res_B, res_dB);
+            });
 
 
 #ifdef VERSION_INFO

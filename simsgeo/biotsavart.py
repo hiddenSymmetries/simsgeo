@@ -39,23 +39,21 @@ class BiotSavart():
 
     def compute(self, points, compute_derivatives=0):
         assert compute_derivatives <= 2
-
-        self._dB_by_dcoilcurrents    = [np.zeros((len(points), 3)) for coil in self.coils]
-
-        if compute_derivatives >= 1:
-            self._d2B_by_dXdcoilcurrents = [np.zeros((len(points), 3, 3)) for coil in self.coils]
-        else:
-            self._d2B_by_dXdcoilcurrents = []
-
-        if compute_derivatives >= 2:
-            self._d3B_by_dXdXdcoilcurrents = [np.zeros((len(points), 3, 3, 3)) for coil in self.coils]
-        else:
-            self._d3B_by_dXdXdcoilcurrents = []
-
         gammas                 = [coil.gamma() for coil in self.coils]
         dgamma_by_dphis        = [coil.gammadash() for coil in self.coils]
 
-        sgpp.biot_savart(points, gammas, dgamma_by_dphis, self._dB_by_dcoilcurrents, self._d2B_by_dXdcoilcurrents, self._d3B_by_dXdXdcoilcurrents)
+        if compute_derivatives == 0:
+            self._dB_by_dcoilcurrents    = [np.zeros((len(points), 3), order='F') for coil in self.coils]
+            sgpp.biot_savart_1(points, gammas, dgamma_by_dphis, self._dB_by_dcoilcurrents)
+        elif compute_derivatives == 1:
+            self._dB_by_dcoilcurrents    = [np.zeros((len(points), 3), order='F') for coil in self.coils]
+            self._d2B_by_dXdcoilcurrents = [np.zeros((len(points), 3, 3), order='F') for coil in self.coils]
+            sgpp.biot_savart_2(points, gammas, dgamma_by_dphis, self._dB_by_dcoilcurrents, self._d2B_by_dXdcoilcurrents)
+        elif compute_derivatives == 2:
+            self._dB_by_dcoilcurrents    = [np.zeros((len(points), 3), order='F') for coil in self.coils]
+            self._d2B_by_dXdcoilcurrents = [np.zeros((len(points), 3, 3), order='F') for coil in self.coils]
+            self._d3B_by_dXdXdcoilcurrents = [np.zeros((len(points), 3, 3, 3), order='F') for coil in self.coils]
+            sgpp.biot_savart_3(points, gammas, dgamma_by_dphis, self._dB_by_dcoilcurrents, self._d2B_by_dXdcoilcurrents, self._d3B_by_dXdXdcoilcurrents)
 
         self._B = sum(self.coil_currents[i] * self._dB_by_dcoilcurrents[i] for i in range(len(self.coil_currents)))
         if compute_derivatives >= 1:
@@ -87,12 +85,13 @@ class BiotSavart():
         gammas                 = [coil.gamma() for coil in self.coils]
         dgamma_by_dphis        = [coil.gammadash() for coil in self.coils]
         currents = self.coil_currents
-        dgamma_by_dcoeffs      = [coil.dgamma_by_dcoeff() for coil in self.coils]
-        d2gamma_by_dphidcoeffs = [coil.dgammadash_by_dcoeff() for coil in self.coils]
+        dgamma_by_dcoeffs      = [np.asfortranarray(coil.dgamma_by_dcoeff()) for coil in self.coils]
+        d2gamma_by_dphidcoeffs = [np.asfortranarray(coil.dgammadash_by_dcoeff()) for coil in self.coils]
         n = len(self.coils)
         coils = self.coils
         res_B = [np.zeros((coils[i].num_dofs(), )) for i in range(n)]
         res_dB = [np.zeros((coils[i].num_dofs(), )) for i in range(n)]
+        vgrad = np.asfortranarray(vgrad)
         sgpp.biot_savart_by_dcoilcoeff_all_vjp_full(self.points, gammas, dgamma_by_dphis, currents, v, vgrad, dgamma_by_dcoeffs, d2gamma_by_dphidcoeffs, res_B, res_dB)
         return (res_B, res_dB)
 
