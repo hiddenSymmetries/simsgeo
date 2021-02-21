@@ -23,7 +23,7 @@ set_target_properties(simsgeopp
     PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON)
-target_include_directories(simsgeopp PRIVATE "xtensor/include" "xtensor-python/include" "xsimd/include" "xtl/include" "blaze" "simsgeopp" ${NUMPY_INCLUDE_DIRS})
+target_include_directories(simsgeopp PRIVATE "xtensor/include" "xtensor-python/include" "xsimd/include" "xtl/include" "eigen" "simsgeopp" ${NUMPY_INCLUDE_DIRS})
 target_link_libraries(simsgeopp PUBLIC ${PYTHON_LIBRARY})
 
 
