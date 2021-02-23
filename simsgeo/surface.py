@@ -167,10 +167,35 @@ class JaxCartesianSurface(JaxSurface):
             gamma_out = index_update(gamma_out,index[:,:,1], gamma_temp[:self.numquadpoints_phi, :self.numquadpoints_theta, 1] ) 
             gamma_out = index_update(gamma_out,index[:,:,2], gamma_temp[:self.numquadpoints_phi, :self.numquadpoints_theta, 2] ) 
             return gamma_out.flatten()
+
+        def dgamma_dtheta_1D(in_gamma):
+            in_gamma_reshaped = in_gamma.reshape( ( self.numquadpoints_theta,3) )
+            
+            if self.ss == 1:
+                gamma_temp = jnp.zeros( ( 2 * self.numquadpoints_theta-1, 3) )
+                S = jnp.array([ [1, 0, 0],[0, -1, 0], [0,0,-1] ])
+                in_gamma_sym = in_gamma_reshaped @ S.T
+                gamma_sym = jnp.concatenate( (in_gamma_reshaped, jnp.flipud( in_gamma_sym[1:,:] ) ), axis = 0)
+            else:
+                gamma_temp = jnp.zeros( (self.numquadpoints_theta, 3) )
+                gamma_sym = in_gamma_reshaped
+                
+            gamma_out = jnp.zeros( ( self.numquadpoints_theta,3 ) )
+            
+            #gamma_sym = self.apply_symmetries( in_gamma_reshaped )
+            gamma_temp = index_update(gamma_temp,index[:,0], gamma_sym[:,0] @ self.D2.T ) 
+            gamma_temp = index_update(gamma_temp,index[:,1], gamma_sym[:,1] @ self.D2.T ) 
+            gamma_temp = index_update(gamma_temp,index[:,2], gamma_sym[:,2] @ self.D2.T ) 
+            
+            gamma_out = index_update(gamma_out,index[:,0], gamma_temp[:self.numquadpoints_theta, 0] ) 
+            gamma_out = index_update(gamma_out,index[:,1], gamma_temp[:self.numquadpoints_theta, 1] ) 
+            gamma_out = index_update(gamma_out,index[:,2], gamma_temp[:self.numquadpoints_theta, 2] ) 
+            return gamma_out.flatten()
         
         self.Dphi =   jacfwd( lambda g: dgamma_dphi(g)    )( np.zeros( (3 * self.numquadpoints_phi * self.numquadpoints_theta, ) ) ) 
         self.Dtheta = jacfwd( lambda g: dgamma_dtheta(g)  )( np.zeros( (3 * self.numquadpoints_phi * self.numquadpoints_theta, ) ) ) 
-   
+        self.Dtheta1D = jacfwd( lambda g: dgamma_dtheta_1D(g)  )( np.zeros( (3 * self.numquadpoints_theta, ) ) ) 
+         
 
 
     def apply_symmetries(self,gamma):

@@ -1,4 +1,5 @@
 import numpy as np
+from pyplasmaopt import *
 import simsgeopp as sgpp
 from jax import grad, vjp, jacfwd, jvp
 from .jit import jit
@@ -12,8 +13,8 @@ FourierCurve, JaxFourierCurve, RotatedCurve, JaxCartesianSurface, stelleratorsym
 
 
 
-def boozer(i, surface, coilCollection, bs, sa_target):            
-    xyz = surface.get_dofs().reshape( (-1,3) )
+def boozer(i, surface, coilCollection, bs, target):            
+    xyz = surface.get_dofs()[:-1].reshape( (-1,3) )
     G = 2. * np.pi * jnp.sum( jnp.array( coilCollection._base_currents ) ) * 2. * surface.nfp * (4 * np.pi * 10**(-7) / (2 * np.pi))
 
     bs.set_points(xyz)
@@ -22,18 +23,19 @@ def boozer(i, surface, coilCollection, bs, sa_target):
     Bmag2     = jnp.tile( (bs.B[:,0]**2 + bs.B[:,1]**2 + bs.B[:,2]**2)[:,None], (1, 3) ).flatten()
 
     pde     = B - (Bmag2/G) * ( surface.gammadash1().flatten() + i * surface.gammadash2().flatten() )
-    sa_cons = jnp.array( [surface.surface_area() - sa_target] )
-    rhs = jnp.concatenate( (pde, sa_cons) )
+    cons = jnp.array( [surface.toroidal_flux() - target] )
+    #cons = jnp.array( [surface.surface_area() - target] )
+    rhs = jnp.concatenate( (pde, cons) )
 
     didx = jnp.arange(xyz.shape[0]) 
     dB_dX = jnp.zeros( (xyz.shape[0], 3, xyz.shape[0], 3) )
-    dB_dX = index_update( dB_dX, index[didx, :,didx , :], bs.dB_by_dX ).reshape( (3 * xyz.shape[0], 3 * xyz.shape[0] ) ) 
+    dB_dX = index_update( dB_dX, index[didx, :,didx , :], np.transpose(bs.dB_by_dX,axes=(0,2,1)) ).reshape( (3 * xyz.shape[0], 3 * xyz.shape[0] ) ) 
 
     
 
-    dBmag2_dX_lin = 2.*(bs.B[:,0][:,None] * bs.dB_by_dX[:,0,:] \
-                      + bs.B[:,1][:,None] * bs.dB_by_dX[:,1,:] \
-                      + bs.B[:,2][:,None] * bs.dB_by_dX[:,2,:]).reshape( (-1,3) )
+    dBmag2_dX_lin = 2.*(bs.B[:,0][:,None] * bs.dB_by_dX[:,:,0] \
+                      + bs.B[:,1][:,None] * bs.dB_by_dX[:,:,1] \
+                      + bs.B[:,2][:,None] * bs.dB_by_dX[:,:,2]).reshape( (-1,3) )
     dBmag2_dX = jnp.zeros( (xyz.shape[0], 3, xyz.shape[0], 3) )
     dBmag2_dX = index_update( dBmag2_dX, index[didx,0,didx,:], dBmag2_dX_lin ) 
     dBmag2_dX = index_update( dBmag2_dX, index[didx,1,didx,:], dBmag2_dX_lin ) 
@@ -45,11 +47,12 @@ def boozer(i, surface, coilCollection, bs, sa_target):
     dpde_dX = dB_dX - term1 - term2 
     dpde_di = (  -(Bmag2/G) * surface.gammadash2().flatten() ).reshape( (-1,1) )
 
-    sa_cons_dX = surface.surface_area_dX( xyz ).reshape( (1,-1) )
-    sa_cons_di = np.array([[0.]])
+    cons_dX = surface.toroidal_flux_dx().reshape( (1,-1) )
+#    cons_dX = surface.surface_area_dX( xyz ).reshape( (1,-1) )
+    cons_di = np.array([[0.]])
 
     drhs_pde = jnp.hstack( (dpde_dX, dpde_di) )
-    drhs_cons = jnp.hstack( (sa_cons_dX, sa_cons_di) )
+    drhs_cons = jnp.hstack( (cons_dX, cons_di) )
     drhs = jnp.vstack( (drhs_pde, drhs_cons) )
 
     rhs = index_update(rhs, index[0], rhs[0] + rhs[1] + rhs[2] )
@@ -62,7 +65,6 @@ def boozer(i, surface, coilCollection, bs, sa_target):
     
 
     return rhs,drhs
-
 
 
 class JaxCartesianMagneticSurface(JaxCartesianSurface):
@@ -80,34 +82,87 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
             self.bs = bs
             self.cc = cc
             self.label_target = label_target
-    
+        
+# this one works for all phi = const profiles 
+#    def toroidal_flux(self):
+#        points = self.apply_symmetries( self.gamma() )
+#        self.bs.set_points(points.reshape( (-1,3) ))
+#        A = self.bs.A.reshape( (points.shape[0], points.shape[1] , 3) )
+#        
+#        gammadash2 = np.zeros( points.shape )
+#        gammadash2[:,:,0] = points[:,:,0] @ self.D2.T
+#        gammadash2[:,:,1] = points[:,:,1] @ self.D2.T
+#        gammadash2[:,:,2] = points[:,:,2] @ self.D2.T
+#        
+#        ipdb.set_trace()
+#        profile = np.mean( np.sum( A * gammadash2, axis = -1), axis = -1 )
+#        
+#        tf = profile[0] # take the first one..., the derivative simplifies if you only take this one I think
+#        return tf
+
+
 
     def toroidal_flux(self):
-        points = self.apply_symmetries( self.gamma() )
-        self.bs.set_points(points.reshape( (-1,3) ))
-        A = self.bs.A.reshape( (points.shape[0], points.shape[1] , 3) )
-        
-        gammadash2 = np.zeros( points.shape )
-        gammadash2[:,:,0] = points[:,:,0] @ self.D2.T
-        gammadash2[:,:,1] = points[:,:,1] @ self.D2.T
-        gammadash2[:,:,2] = points[:,:,2] @ self.D2.T
-        tf = np.mean( np.sum(A * gammadash2,axis=2) )
+        points = self.gamma()[0,:,:] # take the first profile -- easiest for both ss and non ss surfaces
+        Ablock = self.bs.A.reshape( self.gamma().shape )
+        A = Ablock[0,:,:]
+
+
+        gammadash2 = (self.Dtheta1D @ points.flatten()).reshape( (-1,3) )
+        gammadash2_x = gammadash2[:,0] 
+        gammadash2_y = gammadash2[:,1] 
+        gammadash2_z = gammadash2[:,2] 
+
+
+        dot =  A[:,0] * gammadash2_x + A[:,1] * gammadash2_y + A[:,2] * gammadash2_z
+        if self.ss == 1:
+            dot = np.concatenate( (dot, dot[1:] ) )
+
+        tf = np.mean(dot)
         return tf
-    
+
+
     def toroidal_flux_dx(self):
-        return 0
+        points = self.gamma()[0,:,:] 
+        Ablock = self.bs.A.reshape( self.gamma().shape )
+        A = Ablock[0,:,:]
+        dA_by_dX_block = self.bs.dA_by_dX.reshape( (self.numquadpoints_phi, self.numquadpoints_theta,3,3) )
+        dA_by_dX = dA_by_dX_block[0,:,:,:]
+
+
+        didx = jnp.arange(self.numquadpoints_theta) 
+        dA_dX = jnp.zeros( (didx.size, 3, didx.size, 3) )
+        dA_dX = index_update( dA_dX, index[didx, :,didx , :], np.transpose(dA_by_dX,axes=(0,2,1) ) ).reshape( (3 * didx.size, 3 * didx.size ) ) 
+
+        gammadash2 = self.Dtheta1D @ points.flatten()
+        temp = dA_dX * gammadash2.reshape( (-1,1) ) + self.Dtheta1D * A.reshape( (-1,1) )
+        dot_dx = np.sum( temp.reshape( (points.shape[0],3,-1) ), axis = -2) 
+
+        if self.ss == 1:
+            dot_dx = np.concatenate( (dot_dx, dot_dx[1:,:] ), axis = 0 )
+        
+        tf_dx_partial = np.mean(dot_dx, axis = 0)
+        tf_dx = np.zeros( self.gamma().shape )
+        tf_dx[0,:,:] = tf_dx_partial.reshape( (-1,3) )
+        tf_dx = tf_dx.flatten()
+        return tf_dx
+
+       
+
+
+
 
     def convert2Boozer(self, xyzi):
         def func(in_xyzi, surface, coilCollection, bs, label_target):
-            surface.set_dofs( in_xyzi[:-1] )
+            surface.set_dofs( in_xyzi, False )
             i = in_xyzi[-1]
             f,df = boozer( i, surface, coilCollection, bs, label_target)
             return f,df
         
-        
+        lbs = BiotSavart(self.cc.coils, self.cc.currents)
         # create temporary surface
-        surf = JaxCartesianSurface( self.quadpoints_phi, self.quadpoints_theta , self.nfp, self.ss, self.flip)
-        surf.set_dofs(xyzi[:-1])
+        surf = JaxCartesianMagneticSurface( self.quadpoints_phi, self.quadpoints_theta , self.nfp, self.ss, self.flip, self.label_target,lbs, self.cc)
+        surf.set_dofs(xyzi, False)
         
         fdf = lambda x : func(x, surf, self.cc, self.bs, self.label_target)
         diff = 1
@@ -150,11 +205,13 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
         xyz = super().get_dofs()
         return np.concatenate( (xyz,np.array([self.iota]) ) )
 
-    def set_dofs(self, xyzi):
-        xyzi = self.convert2Boozer(xyzi)
-
+    def set_dofs(self, xyzi, update = True):
+        if update:
+            xyzi = self.convert2Boozer(xyzi)
+        
         super().set_dofs(xyzi[:-1])
         self.iota = xyzi[-1]
+        self.bs.set_points( xyzi[:-1].reshape( (-1,3) ) )
         
         self.invalidate_cache()
 
