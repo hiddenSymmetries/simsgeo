@@ -82,8 +82,9 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
             self.__dict__ = args[0].__dict__.copy()
             self.bs = args[1]
             self.cc = args[2]
-            self.label_target = args[3]
-            self.iota = args[4]
+            self.iota = args[3]
+            self.label_target = label_target
+            self.constraint = constraint
             sgpp.Surface.__init__(self, args[0].quadpoints_phi, args[0].quadpoints_theta)
         else:
             quadpoints_phi, quadpoints_theta, nfp, ss, flip, bs, cc = args
