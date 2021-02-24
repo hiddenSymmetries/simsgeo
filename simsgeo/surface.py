@@ -19,7 +19,7 @@ class Surface():
         print("Surface area is {:.8f}".format(np.abs(self.surface_area()) ) )
         print("Volume is {:.8f}".format(np.abs(self.volume() )) )
         print("Aspect ratio is {:.8f}".format(self.aspect_ratio() ) )
-        print("********************") 
+        print("*************************") 
 
     def plot(self, ax=None, show=True, plot_derivative=False, closed_loop=False, color=None, linestyle=None, apply_symmetries = True):
         import matplotlib.pyplot as plt
@@ -301,10 +301,10 @@ class JaxCartesianSurface(JaxSurface):
         t1 = (self.Dphi @ in_g.flatten()   ).reshape( in_g.shape )
         t2 = (self.Dtheta @ in_g.flatten()   ).reshape( in_g.shape )
         n = jnp.cross( t1, t2 )
-        n_norm = jnp.sqrt(n[:,0]**2 + n[:,1]**2 + n[:,2]**2 ) 
+        n_norm = jnp.sqrt(n[:,0]**2 + n[:,1]**2 + n[:,2]**2 ).reshape( (self.numquadpoints_phi, self.numquadpoints_theta) )
         if self.ss == 1 and self.numquadpoints_theta % 2 == 1:
-            n_norm = np.concatenate( (n_norm, n_norm[:,1:]), axis = 1 )
-
+            n_norm = jnp.concatenate( (n_norm, n_norm[:,1:]), axis = 1 )
+        
         return jnp.mean( n_norm )
 
     def interpolated_surface(self, Nphi_new, Ntheta_new):

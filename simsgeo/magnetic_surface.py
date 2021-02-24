@@ -178,7 +178,12 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
         
 
         if self.label_target is None:
-            self.label_target = surf.toroidal_flux()
+            if self.constraint == "tf":
+                self.label_target = surf.toroidal_flux()
+            elif self.constraint == "sa":
+                self.label_target = surf.surface_area()
+            else:
+                raise("This constraint is not implemented yet")
             surf.label_target = self.label_target
 
         fdf = lambda x : func(x, surf, self.cc, self.bs, self.label_target)
@@ -233,7 +238,7 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
         self.invalidate_cache()
 
     def print_metadata(self):
-        print("********************")
+        print("*************************")
         print("Iota : {:.8f}".format( self.iota ) )
         print("Toroidal flux: {:.8f}".format( self.toroidal_flux() ) )
         super().print_metadata()
