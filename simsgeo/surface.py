@@ -14,6 +14,12 @@ class Surface():
         self.phi_grid, self.theta_grid = np.meshgrid(quadpoints_phi, quadpoints_theta)
         self.phi_grid = self.phi_grid.T    
         self.theta_grid = self.theta_grid.T 
+    
+    def print_metadata(self):
+        print("Surface area is {:.8f}".format(np.abs(self.surface_area()) ) )
+        print("Volume is {:.8f}".format(np.abs(self.volume() )) )
+        print("Aspect ratio is {:.8f}".format(self.aspect_ratio() ) )
+        print("********************") 
 
     def plot(self, ax=None, show=True, plot_derivative=False, closed_loop=False, color=None, linestyle=None, apply_symmetries = True):
         import matplotlib.pyplot as plt
@@ -80,8 +86,36 @@ class JaxSurface(sgpp.Surface, Surface):
         normal[:,:,:] = jnp.cross(self.gammadash1(), self.gammadash2() )
     def surface_area(self):
         n = self.normal()
-        return jnp.mean( jnp.sqrt(n[:,:,0]**2 + n[:,:,1]**2 + n[:,:,2]**2 ) )
+        n_norm = jnp.sqrt(n[:,:,0]**2 + n[:,:,1]**2 + n[:,:,2]**2 )
         
+        if self.ss == 1 and self.numquadpoints_theta % 2 == 1:
+            n_norm = np.concatenate( (n_norm, n_norm[:,1:]), axis = 1 )
+
+        return jnp.mean( n_norm )
+#    def volume(self):
+#        xyz = self.gamma()
+#        x = xyz[:,:,0]
+#        n = self.normal()
+#        prod = x * n[:,:,0]
+#        if self.ss == 1:
+#            prod = np.concatenate( (prod, prod[:,1:]), axis = 1)
+#        return jnp.mean( prod )
+    def volume(self):
+        xyz = self.apply_symmetries( self.gamma() )
+        x = xyz[:,:,0]
+        dgamma1 = np.zeros( xyz.shape )
+        dgamma2 = np.zeros( xyz.shape )
+        dgamma1[:,:,0] = (self.D1 @ xyz[:,:,0] )   
+        dgamma1[:,:,1] = (self.D1 @ xyz[:,:,1] )   
+        dgamma1[:,:,2] = (self.D1 @ xyz[:,:,2] )   
+        dgamma2[:,:,0] = ( xyz[:,:,0] @ self.D2.T )
+        dgamma2[:,:,1] = ( xyz[:,:,1] @ self.D2.T )
+        dgamma2[:,:,2] = ( xyz[:,:,2] @ self.D2.T )
+        nor =  np.cross( dgamma1.reshape( (-1,3) ), dgamma2.reshape( (-1,3) ) ).reshape( xyz.shape ) 
+        prod = x * nor[:,:,0]
+        return jnp.mean( prod )
+
+
 def cartesianboozersurface_pure(dofs, quadpoints_phi, quadpoints_theta):
     gamma =  jnp.array( dofs.reshape( (len(quadpoints_phi), len(quadpoints_theta),3) ) )
     return gamma
@@ -267,7 +301,11 @@ class JaxCartesianSurface(JaxSurface):
         t1 = (self.Dphi @ in_g.flatten()   ).reshape( in_g.shape )
         t2 = (self.Dtheta @ in_g.flatten()   ).reshape( in_g.shape )
         n = jnp.cross( t1, t2 )
-        return jnp.mean( jnp.sqrt(n[:,0]**2 + n[:,1]**2 + n[:,2]**2 ) )
+        n_norm = jnp.sqrt(n[:,0]**2 + n[:,1]**2 + n[:,2]**2 ) 
+        if self.ss == 1 and self.numquadpoints_theta % 2 == 1:
+            n_norm = np.concatenate( (n_norm, n_norm[:,1:]), axis = 1 )
+
+        return jnp.mean( n_norm )
 
     def interpolated_surface(self, Nphi_new, Ntheta_new):
         gg = self.apply_symmetries(self.gamma())
@@ -315,6 +353,43 @@ class JaxCartesianSurface(JaxSurface):
         return surf
 
 
+    def aspect_ratio(self):
+       
+
+        xyz = self.apply_symmetries( self.gamma() )
+        x2y2 = xyz[:,:,0]**2 + xyz[:,:,1]**2
+        dgamma1 = np.zeros( xyz.shape )
+        dgamma2 = np.zeros( xyz.shape )
+        dgamma1[:,:,0] = (self.D1 @ xyz[:,:,0] )   
+        dgamma1[:,:,1] = (self.D1 @ xyz[:,:,1] )   
+        dgamma1[:,:,2] = (self.D1 @ xyz[:,:,2] )   
+        dgamma2[:,:,0] = ( xyz[:,:,0] @ self.D2.T )
+        dgamma2[:,:,1] = ( xyz[:,:,1] @ self.D2.T )
+        dgamma2[:,:,2] = ( xyz[:,:,2] @ self.D2.T )
+
+
+
+
+        # compute the average cross sectional area
+        J = np.zeros( (xyz.shape[0], xyz.shape[1], 2,2) )
+        J[:,:,0,0] = (1./ (2. * np.pi))*(xyz[:,:,0] * dgamma1[:,:,1] - xyz[:,:,1] * dgamma1[:,:,0] )/x2y2
+        J[:,:,0,1] = (1./ (2. * np.pi))*(xyz[:,:,0] * dgamma2[:,:,1] - xyz[:,:,1] * dgamma2[:,:,0] )/x2y2
+        J[:,:,1,0] = 0.
+        J[:,:,1,1] = 1.
+        detJ = np.linalg.det(J)
+        Jinv = np.linalg.inv(J)
+        
+        dZ_dcyltheta = dgamma1[:,:,2] * Jinv[:,:,0,1] + dgamma2[:,:,2] * Jinv[:,:,1,1]
+        mean_cross_sectional_area = np.abs(np.mean( np.sqrt(x2y2) * dZ_dcyltheta * detJ )) 
+        
+        r = np.sqrt( mean_cross_sectional_area / np.pi )
+        R = np.abs(self.volume()) / (2. * np.pi**2 * r**2)
+        
+        AR =  R/r
+        
+        #print("MCA:", mean_cross_sectional_area,"r: ",r,"R: ",R,"AR: ",AR)
+        
+        return AR
 
 
 

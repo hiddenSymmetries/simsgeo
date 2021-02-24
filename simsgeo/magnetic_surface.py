@@ -23,8 +23,13 @@ def boozer(i, surface, coilCollection, bs, target):
     Bmag2     = jnp.tile( (bs.B[:,0]**2 + bs.B[:,1]**2 + bs.B[:,2]**2)[:,None], (1, 3) ).flatten()
 
     pde     = B - (Bmag2/G) * ( surface.gammadash1().flatten() + i * surface.gammadash2().flatten() )
-    cons = jnp.array( [surface.toroidal_flux() - target] )
-    #cons = jnp.array( [surface.surface_area() - target] )
+
+    if surface.constraint == 'tf':
+        cons = jnp.array( [surface.toroidal_flux() - target] )
+    elif surface.constraint == 'sa':
+        cons = jnp.array( [surface.surface_area() - target] )
+    else:
+        raise("Constraint not implemented yet!")
     rhs = jnp.concatenate( (pde, cons) )
 
     didx = jnp.arange(xyz.shape[0]) 
@@ -46,9 +51,13 @@ def boozer(i, surface, coilCollection, bs, target):
     term2 = (Bmag2  / G ).reshape( (-1,1) ) * ( surface.Dphi + i * surface.Dtheta )
     dpde_dX = dB_dX - term1 - term2 
     dpde_di = (  -(Bmag2/G) * surface.gammadash2().flatten() ).reshape( (-1,1) )
-
-    cons_dX = surface.toroidal_flux_dx().reshape( (1,-1) )
-#    cons_dX = surface.surface_area_dX( xyz ).reshape( (1,-1) )
+    
+    if surface.constraint == 'tf':
+        cons_dX = surface.toroidal_flux_dx().reshape( (1,-1) )
+    elif surface.constraint == 'sa':
+        cons_dX = surface.surface_area_dX( xyz ).reshape( (1,-1) )
+    else:
+        raise("Constraint not implemented yet.")
     cons_di = np.array([[0.]])
 
     drhs_pde = jnp.hstack( (dpde_dX, dpde_di) )
@@ -68,7 +77,7 @@ def boozer(i, surface, coilCollection, bs, target):
 
 
 class JaxCartesianMagneticSurface(JaxCartesianSurface):
-    def __init__(self, *args):
+    def __init__(self, *args, label_target = None, constraint = 'tf'):
         if type(args[0]) is JaxCartesianSurface :
             self.__dict__ = args[0].__dict__.copy()
             self.bs = args[1]
@@ -77,11 +86,14 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
             self.iota = args[4]
             sgpp.Surface.__init__(self, args[0].quadpoints_phi, args[0].quadpoints_theta)
         else:
-            quadpoints_phi, quadpoints_theta, nfp, ss, flip, label_target, bs, cc = args
+            quadpoints_phi, quadpoints_theta, nfp, ss, flip, bs, cc = args
             super().__init__(quadpoints_phi, quadpoints_theta, nfp, ss, flip)
             self.bs = bs
             self.cc = cc
-            self.label_target = label_target
+            self.constraint = constraint
+            self.label_target = None
+            if label_target is not None:
+                self.label_target = label_target
         
 # this one works for all phi = const profiles 
 #    def toroidal_flux(self):
@@ -161,9 +173,14 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
         
         lbs = BiotSavart(self.cc.coils, self.cc.currents)
         # create temporary surface
-        surf = JaxCartesianMagneticSurface( self.quadpoints_phi, self.quadpoints_theta , self.nfp, self.ss, self.flip, self.label_target,lbs, self.cc)
+        surf = JaxCartesianMagneticSurface( self.quadpoints_phi, self.quadpoints_theta , self.nfp, self.ss, self.flip, lbs, self.cc, constraint = self.constraint)
         surf.set_dofs(xyzi, False)
         
+
+        if self.label_target is None:
+            self.label_target = surf.toroidal_flux()
+            surf.label_target = self.label_target
+
         fdf = lambda x : func(x, surf, self.cc, self.bs, self.label_target)
         diff = 1
         count = 0
@@ -215,4 +232,8 @@ class JaxCartesianMagneticSurface(JaxCartesianSurface):
         
         self.invalidate_cache()
 
- 
+    def print_metadata(self):
+        print("********************")
+        print("Iota : {:.8f}".format( self.iota ) )
+        print("Toroidal flux: {:.8f}".format( self.toroidal_flux() ) )
+        super().print_metadata()
