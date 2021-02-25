@@ -6,6 +6,7 @@ typedef xt::pyarray<double> PyArray;
 
 #include "surface.cpp"
 #include "pysurface.cpp"
+#include "surfacerzfourier.cpp"
 
 
 #include "curve.cpp"
