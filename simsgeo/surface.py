@@ -29,13 +29,13 @@ class Surface():
         gamma = self.gamma()
         dgamma1 = self.gammadash1()
         dgamma2 = self.gammadash2()
-        normal = self.normal()
+        # normal = self.normal()
 
         if apply_symmetries:
             gamma = self.apply_symmetries( gamma )
             dgamma1 = self.apply_symmetries( dgamma1 )
             dgamma2 = self.apply_symmetries( dgamma2 )
-            normal = self.apply_symmetries( normal )
+            # normal = self.apply_symmetries( normal )
         def rep(data):
             if closed_loop:
                 concat_theta = np.vstack((data, data[0,:][None,:]))
@@ -82,8 +82,6 @@ class JaxSurface(sgpp.Surface, Surface):
         dgamma_dphi[:,:,:] = (self.Dphi @ self.gamma().flatten()   ).reshape( self.gamma().shape ) 
     def gammadash2_impl(self, dgamma_dtheta):
         dgamma_dtheta[:,:,:] = (self.Dtheta @ self.gamma().flatten() ).reshape( self.gamma().shape ) 
-    def normal_impl(self, normal):
-        normal[:,:,:] = jnp.cross(self.gammadash1(), self.gammadash2() )
     def surface_area(self):
         n = self.normal()
         n_norm = jnp.sqrt(n[:,:,0]**2 + n[:,:,1]**2 + n[:,:,2]**2 )
@@ -161,6 +159,8 @@ class JaxCartesianSurface(JaxSurface):
             self.D2 = jnp.array( generate_diff_matrix( self.numquadpoints_theta ,      0, 1) )
 
 
+        # take in partial surface, then apply symmetries, then apply spectral
+        # differentiation, then remove redundant part of matrix again
         def dgamma_dphi(in_gamma):
            
             in_gamma_reshaped = in_gamma.reshape( (self.numquadpoints_phi, self.numquadpoints_theta,3) )
@@ -202,6 +202,8 @@ class JaxCartesianSurface(JaxSurface):
             gamma_out = index_update(gamma_out,index[:,:,2], gamma_temp[:self.numquadpoints_phi, :self.numquadpoints_theta, 2] ) 
             return gamma_out.flatten()
 
+        # smaller version of dgamma_dtheta that does the same thing but for a single phi (phi=0)
+        # for integrating A\cdot n (n is not the unit normal) over theta for fixed phi = 0, where \nabla \times A = B
         def dgamma_dtheta_1D(in_gamma):
             in_gamma_reshaped = in_gamma.reshape( ( self.numquadpoints_theta,3) )
             

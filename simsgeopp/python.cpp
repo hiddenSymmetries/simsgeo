@@ -7,6 +7,7 @@ typedef xt::pyarray<double> PyArray;
 #include "surface.cpp"
 #include "pysurface.cpp"
 #include "surfacerzfourier.cpp"
+typedef SurfaceRZFourier<PyArray> PySurfaceRZFourier;
 
 
 #include "curve.cpp"
@@ -63,6 +64,28 @@ template <class PyStelleratorSymmetricCylindricalFourierCurveBase = PyStellerato
         }
 };
 
+template <class PySurfaceRZFourierBase = PySurfaceRZFourier> class PySurfaceRZFourierTrampoline : public PySurfaceRZFourierBase {
+    public:
+        using PySurfaceRZFourierBase::PySurfaceRZFourierBase;
+
+        int num_dofs() override {
+            return PySurfaceRZFourierBase::num_dofs();
+        }
+
+        void set_dofs_impl(const vector<double>& _dofs) override {
+            PySurfaceRZFourierBase::set_dofs_impl(_dofs);
+        }
+
+        vector<double> get_dofs() override {
+            return PySurfaceRZFourierBase::get_dofs();
+        }
+
+        void gamma_impl(PyArray& data) override {
+            PySurfaceRZFourierBase::gamma_impl(data);
+        }
+};
+
+
 PYBIND11_MODULE(simsgeopp, m) {
     xt::import_numpy();
     py::class_<PySurface, std::shared_ptr<PySurface>, PySurfaceTrampoline<PySurface>>(m, "Surface")
@@ -75,6 +98,22 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("set_dofs", &PySurface::set_dofs)
         .def_readonly("quadpoints_phi", &PySurface::quadpoints_phi)
         .def_readonly("quadpoints_theta", &PySurface::quadpoints_theta);
+
+    py::class_<PySurfaceRZFourier, std::shared_ptr<PySurfaceRZFourier>, PySurfaceRZFourierTrampoline<PySurfaceRZFourier>>(m, "SurfaceRZFourier")
+        .def(py::init<int, int, int, bool, vector<double>,vector<double>>())
+        .def_readwrite("rc", &PySurfaceRZFourier::rc)
+        .def_readwrite("rs", &PySurfaceRZFourier::rs)
+        .def_readwrite("zc", &PySurfaceRZFourier::zc)
+        .def_readwrite("zs", &PySurfaceRZFourier::zs)
+        .def("invalidate_cache", &PySurfaceRZFourier::invalidate_cache)
+        .def("get_dofs", &PySurfaceRZFourier::get_dofs)
+        .def("set_dofs", &PySurfaceRZFourier::set_dofs)
+        .def("gamma", &PySurfaceRZFourier::gamma)
+        .def("gammadash1", &PySurfaceRZFourier::gammadash1)
+        .def("gammadash2", &PySurfaceRZFourier::gammadash2)
+        .def("dgamma_by_dcoeff", &PySurfaceRZFourier::dgamma_by_dcoeff)
+        .def("dgammadash1_by_dcoeff", &PySurfaceRZFourier::dgammadash1_by_dcoeff)
+        .def("dgammadash2_by_dcoeff", &PySurfaceRZFourier::dgammadash2_by_dcoeff);
 
 
     py::class_<PyCurve, std::shared_ptr<PyCurve>, PyCurveTrampoline<PyCurve>>(m, "Curve")

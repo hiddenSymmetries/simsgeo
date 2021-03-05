@@ -8,3 +8,5 @@ from .biotsavart import *
 from .curve import RotatedCurve
 from .surface import *
 from .magnetic_surface import *
+from .surfacerzfourier import *
+from .magnetic_surface_leastsquares import *

@@ -52,7 +52,6 @@ class BiotSavart():
         else:
             self._d3B_by_dXdXdcoilcurrents = []
 
-        ipdb.set_trace()
         gammas                 = [coil.gamma() for coil in self.coils]
         dgamma_by_dphis        = [coil.gammadash() for coil in self.coils]
 
