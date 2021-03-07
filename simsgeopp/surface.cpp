@@ -70,7 +70,7 @@ class Surface {
         virtual void dgammadash1_by_dcoeff_impl(Array& data) { throw logic_error("dgammadash1_by_dcoeff_impl was not implemented"); };
         virtual void dgammadash2_by_dcoeff_impl(Array& data) { throw logic_error("dgammadash2_by_dcoeff_impl was not implemented"); };
 
-        virtual void normal_impl(Array& data)  { 
+        void normal_impl(Array& data)  { 
             auto dg1 = this->gammadash1();
             auto dg2 = this->gammadash2();
             for (int i = 0; i < numquadpoints_phi; ++i) {
@@ -81,7 +81,7 @@ class Surface {
                 }
             }
         };
-        virtual void dnormal_by_dcoeff_impl(Array& data)  { 
+        void dnormal_by_dcoeff_impl(Array& data)  { 
             auto dg1 = this->gammadash1();
             auto dg2 = this->gammadash2();
             auto dg1_dc = this->dgammadash1_by_dcoeff();
@@ -101,8 +101,31 @@ class Surface {
             }
         };
 
+        double surface_area() {
+            double area = 0.;
+            auto n = this->normal();
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    area += sqrt(n(i,j,0)*n(i,j,0) + n(i,j,1)*n(i,j,1) + n(i,j,2)*n(i,j,2));
+                }
+            }
+            return area/(numquadpoints_phi*numquadpoints_theta);
+        }
 
-        virtual double surface_area()  { throw logic_error("surface_area was not implemented"); };
+        void dsurface_area_by_dcoeff_impl(Array& data) {
+            data *= 0.;
+            auto n = this->normal();
+            auto dn_dc = this->dnormal_by_dcoeff();
+            int ndofs = num_dofs();
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    for (int m = 0; m < ndofs; ++m) {
+                        data(m) += (dn_dc(i,j,0,m)*n(i,j,0) + dn_dc(i,j,1,m)*n(i,j,1) + dn_dc(i,j,2,m)*n(i,j,2)) / sqrt(n(i,j,0)*n(i,j,0) + n(i,j,1)*n(i,j,1) + n(i,j,2)*n(i,j,2));
+                    }
+                }
+            }
+            data *= 1./ (numquadpoints_phi*numquadpoints_theta);
+        }
 
         Array& gamma() {
             return check_the_cache("gamma", {numquadpoints_phi, numquadpoints_theta,3}, [this](Array& A) { return gamma_impl(A);});
@@ -124,6 +147,12 @@ class Surface {
         }
         Array& normal() {
             return check_the_cache("normal", {numquadpoints_phi, numquadpoints_theta,3}, [this](Array& A) { return normal_impl(A);});
+        }
+        Array& dnormal_by_dcoeff() {
+            return check_the_cache("dnormal_by_dcoeff", {numquadpoints_phi, numquadpoints_theta,3, num_dofs()}, [this](Array& A) { return dnormal_by_dcoeff_impl(A);});
+        }
+        Array& dsurface_area_by_dcoeff() {
+            return check_the_cache("dsurface_area_by_dcoeff", {num_dofs()}, [this](Array& A) { return dsurface_area_by_dcoeff_impl(A);});
         }
 
 

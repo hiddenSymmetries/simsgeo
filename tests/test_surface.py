@@ -32,21 +32,27 @@ def taylor_test(f, df, x, epsilons=None, direction=None):
     # print("################################################################################")
 
 def get_surface(surfacetype):
-    mpol = 2
-    ntor = 1
-    nfp = 1
+    mpol = 4
+    ntor = 3
+    nfp = 2
     stellsym = True
+    phis = np.linspace(0, 1, 31, endpoint=False)
+    thetas = np.linspace(0, 1, 31, endpoint=False)
     if surfacetype == "SurfaceRZFourier":
         from simsgeo import SurfaceRZFourier
-        s = SurfaceRZFourier(mpol, ntor, nfp, stellsym, np.linspace(0, 1, 31, endpoint=False), np.linspace(0, 1, 31, endpoint=False))
-        
-    else:
-        assert False
-
-    if surfacetype in ["SurfaceRZFourier"]:
+        s = SurfaceRZFourier(mpol, ntor, nfp, stellsym, phis, thetas)
         s.rc[0, ntor + 0] = 1
         s.rc[1, ntor + 0] = 0.3
         s.zs[1, ntor + 0] = 0.3
+    elif surfacetype == "SurfaceXYZFourier":
+        from simsgeo import SurfaceXYZFourier
+        stellsym = False
+        s = SurfaceXYZFourier(mpol, ntor, nfp, stellsym, phis, thetas)
+        s.xc[0, ntor + 1] = 1.
+        s.xc[1, ntor + 1] = 0.1
+        s.ys[0, ntor + 1] = 1.
+        s.ys[1, ntor + 1] = 0.1
+        s.zs[1, ntor] = 0.1
     else:
         assert False
 
@@ -59,7 +65,7 @@ def get_surface(surfacetype):
 
 class Testing(unittest.TestCase):
 
-    surfacetypes = ["SurfaceRZFourier"]
+    surfacetypes = ["SurfaceRZFourier", "SurfaceXYZFourier"]
 
     def subtest_surface_coefficient_derivative(self, s):
         coeffs = s.get_dofs()
@@ -94,6 +100,42 @@ class Testing(unittest.TestCase):
                     s = get_surface(surfacetype)
                     self.subtest_surface_coefficient_derivative(s)
 
+
+    def subtest_surface_normal_coefficient_derivative(self, s):
+        coeffs = s.get_dofs()
+        s.invalidate_cache()
+        def f(dofs):
+            s.set_dofs(dofs)
+            return s.normal()[1, 1, :].copy()
+        def df(dofs):
+            s.set_dofs(dofs)
+            return s.dnormal_by_dcoeff()[1, 1, :, :].copy()
+        taylor_test(f, df, coeffs)
+
+
+    def test_surface_normal_coefficient_derivative(self):
+        for surfacetype in self.surfacetypes:
+                with self.subTest(surfacetype=surfacetype):
+                    s = get_surface(surfacetype)
+                    self.subtest_surface_normal_coefficient_derivative(s)
+
+    def subtest_surface_area_coefficient_derivative(self, s):
+        coeffs = s.get_dofs()
+        s.invalidate_cache()
+        def f(dofs):
+            s.set_dofs(dofs)
+            return np.asarray(s.surface_area())
+        def df(dofs):
+            s.set_dofs(dofs)
+            return s.dsurface_area_by_dcoeff()[None, :].copy()
+        taylor_test(f, df, coeffs)
+
+
+    def test_surface_area_coefficient_derivative(self):
+        for surfacetype in self.surfacetypes:
+                with self.subTest(surfacetype=surfacetype):
+                    s = get_surface(surfacetype)
+                    self.subtest_surface_area_coefficient_derivative(s)
 
 if __name__ == "__main__":
     print('wtf')

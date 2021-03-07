@@ -8,6 +8,8 @@ typedef xt::pyarray<double> PyArray;
 #include "pysurface.cpp"
 #include "surfacerzfourier.cpp"
 typedef SurfaceRZFourier<PyArray> PySurfaceRZFourier;
+#include "surfacexyzfourier.cpp"
+typedef SurfaceXYZFourier<PyArray> PySurfaceXYZFourier;
 
 
 #include "curve.cpp"
@@ -85,6 +87,27 @@ template <class PySurfaceRZFourierBase = PySurfaceRZFourier> class PySurfaceRZFo
         }
 };
 
+template <class PySurfaceXYZFourierBase = PySurfaceXYZFourier> class PySurfaceXYZFourierTrampoline : public PySurfaceXYZFourierBase {
+    public:
+        using PySurfaceXYZFourierBase::PySurfaceXYZFourierBase;
+
+        int num_dofs() override {
+            return PySurfaceXYZFourierBase::num_dofs();
+        }
+
+        void set_dofs_impl(const vector<double>& _dofs) override {
+            PySurfaceXYZFourierBase::set_dofs_impl(_dofs);
+        }
+
+        vector<double> get_dofs() override {
+            return PySurfaceXYZFourierBase::get_dofs();
+        }
+
+        void gamma_impl(PyArray& data) override {
+            PySurfaceXYZFourierBase::gamma_impl(data);
+        }
+};
+
 
 PYBIND11_MODULE(simsgeopp, m) {
     xt::import_numpy();
@@ -94,6 +117,9 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("gammadash1", &PySurface::gammadash1)
         .def("gammadash2", &PySurface::gammadash2)
         .def("normal", &PySurface::normal)
+        .def("dnormal_by_dcoeff", &PySurface::dnormal_by_dcoeff)
+        .def("surface_area", &PySurface::surface_area)
+        .def("dsurface_area_by_dcoeff", &PySurface::dsurface_area_by_dcoeff)
         .def("invalidate_cache", &PySurface::invalidate_cache)
         .def("set_dofs", &PySurface::set_dofs)
         .def_readonly("quadpoints_phi", &PySurface::quadpoints_phi)
@@ -113,7 +139,33 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("gammadash2", &PySurfaceRZFourier::gammadash2)
         .def("dgamma_by_dcoeff", &PySurfaceRZFourier::dgamma_by_dcoeff)
         .def("dgammadash1_by_dcoeff", &PySurfaceRZFourier::dgammadash1_by_dcoeff)
-        .def("dgammadash2_by_dcoeff", &PySurfaceRZFourier::dgammadash2_by_dcoeff);
+        .def("dgammadash2_by_dcoeff", &PySurfaceRZFourier::dgammadash2_by_dcoeff)
+        .def("normal", &PySurfaceRZFourier::normal)
+        .def("dnormal_by_dcoeff", &PySurfaceRZFourier::dnormal_by_dcoeff)
+        .def("surface_area", &PySurfaceRZFourier::surface_area)
+        .def("dsurface_area_by_dcoeff", &PySurfaceRZFourier::dsurface_area_by_dcoeff);
+
+    py::class_<PySurfaceXYZFourier, std::shared_ptr<PySurfaceXYZFourier>, PySurfaceXYZFourierTrampoline<PySurfaceXYZFourier>>(m, "SurfaceXYZFourier")
+        .def(py::init<int, int, int, bool, vector<double>,vector<double>>())
+        .def_readwrite("xc", &PySurfaceXYZFourier::xc)
+        .def_readwrite("xs", &PySurfaceXYZFourier::xs)
+        .def_readwrite("yc", &PySurfaceXYZFourier::yc)
+        .def_readwrite("ys", &PySurfaceXYZFourier::ys)
+        .def_readwrite("zc", &PySurfaceXYZFourier::zc)
+        .def_readwrite("zs", &PySurfaceXYZFourier::zs)
+        .def("invalidate_cache", &PySurfaceXYZFourier::invalidate_cache)
+        .def("get_dofs", &PySurfaceXYZFourier::get_dofs)
+        .def("set_dofs", &PySurfaceXYZFourier::set_dofs)
+        .def("gamma", &PySurfaceXYZFourier::gamma)
+        .def("gammadash1", &PySurfaceXYZFourier::gammadash1)
+        .def("gammadash2", &PySurfaceXYZFourier::gammadash2)
+        .def("dgamma_by_dcoeff", &PySurfaceXYZFourier::dgamma_by_dcoeff)
+        .def("dgammadash1_by_dcoeff", &PySurfaceXYZFourier::dgammadash1_by_dcoeff)
+        .def("dgammadash2_by_dcoeff", &PySurfaceXYZFourier::dgammadash2_by_dcoeff)
+        .def("normal", &PySurfaceXYZFourier::normal)
+        .def("dnormal_by_dcoeff", &PySurfaceXYZFourier::dnormal_by_dcoeff)
+        .def("surface_area", &PySurfaceXYZFourier::surface_area)
+        .def("dsurface_area_by_dcoeff", &PySurfaceXYZFourier::dsurface_area_by_dcoeff);
 
 
     py::class_<PyCurve, std::shared_ptr<PyCurve>, PyCurveTrampoline<PyCurve>>(m, "Curve")
