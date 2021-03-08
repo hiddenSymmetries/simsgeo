@@ -50,12 +50,28 @@ class Curve {
     // with accessing them from python child classes. 
     public://protected:
         int numquadpoints;
-        vector<double> quadpoints;
+        Array quadpoints;
 
     public:
 
-        Curve(vector<double> _quadpoints) : quadpoints(_quadpoints) {
-            numquadpoints = quadpoints.size();
+        Curve(int _numquadpoints) {
+            numquadpoints = _numquadpoints;
+            quadpoints = xt::zeros<double>({_numquadpoints});
+            for (int i = 0; i < numquadpoints; ++i) {
+                quadpoints[i] = (double(i))/numquadpoints;
+            }
+        }
+
+        Curve(vector<double> _quadpoints) {
+            quadpoints = xt::zeros<double>({_quadpoints.size()});
+            numquadpoints = _quadpoints.size();
+            for (int i = 0; i < numquadpoints; ++i) {
+                quadpoints[i] = _quadpoints[i];
+            }
+        }
+
+        Curve(Array _quadpoints) : quadpoints(_quadpoints) {
+            numquadpoints = _quadpoints.size();
         }
 
         void invalidate_cache() {
@@ -73,7 +89,11 @@ class Curve {
         virtual void set_dofs_impl(const vector<double>& _dofs) = 0;
         virtual vector<double> get_dofs() = 0;
 
-        virtual void gamma_impl(Array& data) = 0;
+/* The interface for gamma_impl is a little different than the other ones, in
+ * the sense that we allow the user to pass the quadrature points.  This is
+ * useful for evaluation the curve on e.g. finer or different grid.  */
+        virtual void gamma_impl(Array& data, Array& quadpoints) = 0; 
+
         virtual void gammadash_impl(Array& data) { throw logic_error("gammadash_impl was not implemented"); };
         virtual void gammadashdash_impl(Array& data) { throw logic_error("gammadashdash_impl was not implemented"); };
         virtual void gammadashdashdash_impl(Array& data) { throw logic_error("gammadashdashdash_impl was not implemented"); };
@@ -107,7 +127,7 @@ class Curve {
         };
 
         Array& gamma() {
-            return check_the_cache("gamma", {numquadpoints, 3}, [this](Array& A) { return gamma_impl(A);});
+            return check_the_cache("gamma", {numquadpoints, 3}, [this](Array& A) { return gamma_impl(A, this->quadpoints);});
         }
         Array& gammadash() {
             return check_the_cache("gammadash", {numquadpoints, 3}, [this](Array& A) { return gammadash_impl(A);});

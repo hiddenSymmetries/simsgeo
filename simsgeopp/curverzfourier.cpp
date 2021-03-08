@@ -18,10 +18,7 @@ class CurveRZFourier : public Curve<Array> {
         Array zc;
         Array zs;
 
-        CurveRZFourier(int _numquadpoints, int _order, int _nfp, bool _stellsym) : Curve<Array>(std::vector<double>(_numquadpoints, 0.)), order(_order), nfp(_nfp), stellsym(_stellsym) {
-            for (int i = 0; i < numquadpoints; ++i) {
-                this->quadpoints[i] = ((double)i)/(nfp*numquadpoints);
-            }
+        CurveRZFourier(int _numquadpoints, int _order, int _nfp, bool _stellsym) : Curve<Array>(_numquadpoints), order(_order), nfp(_nfp), stellsym(_stellsym) {
             rc = xt::zeros<double>({order + 1});
             rs = xt::zeros<double>({order});
             zc = xt::zeros<double>({order + 1});
@@ -29,6 +26,13 @@ class CurveRZFourier : public Curve<Array> {
         }
 
         CurveRZFourier(vector<double> _quadpoints, int _order, int _nfp, bool _stellsym) : Curve<Array>(_quadpoints), order(_order), nfp(_nfp), stellsym(_stellsym) {
+            rc = xt::zeros<double>({order + 1});
+            rs = xt::zeros<double>({order});
+            zc = xt::zeros<double>({order + 1});
+            zs = xt::zeros<double>({order});
+        }
+
+        CurveRZFourier(Array _quadpoints, int _order, int _nfp, bool _stellsym) : Curve<Array>(_quadpoints), order(_order), nfp(_nfp), stellsym(_stellsym) {
             rc = xt::zeros<double>({order + 1});
             rs = xt::zeros<double>({order});
             zc = xt::zeros<double>({order + 1});
@@ -86,7 +90,8 @@ class CurveRZFourier : public Curve<Array> {
             return res;
         }
 
-        void gamma_impl(Array& data) override {
+        void gamma_impl(Array& data, Array& quadpoints) override {
+            int numquadpoints = quadpoints.size();
             data *= 0;
             for (int k = 0; k < numquadpoints; ++k) {
                 double phi = 2 * M_PI * quadpoints[k];

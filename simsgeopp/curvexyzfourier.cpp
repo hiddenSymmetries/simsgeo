@@ -10,10 +10,8 @@ class CurveXYZFourier : public Curve<Array> {
         using Curve<Array>::quadpoints;
         using Curve<Array>::numquadpoints;
         vector<vector<double>> dofs;
-        CurveXYZFourier(int _numquadpoints, int _order) : Curve<Array>(std::vector<double>(_numquadpoints, 0.)), order(_order) {
-            for (int i = 0; i < numquadpoints; ++i) {
-                this->quadpoints[i] = ((double)i)/numquadpoints;
-            }
+
+        CurveXYZFourier(int _numquadpoints, int _order) : Curve<Array>(_numquadpoints), order(_order) {
             dofs = vector<vector<double>> {
                 vector<double>(2*order+1, 0.), 
                 vector<double>(2*order+1, 0.), 
@@ -22,6 +20,14 @@ class CurveXYZFourier : public Curve<Array> {
         }
 
         CurveXYZFourier(vector<double> _quadpoints, int _order) : Curve<Array>(_quadpoints), order(_order) {
+            dofs = vector<vector<double>> {
+                vector<double>(2*order+1, 0.), 
+                vector<double>(2*order+1, 0.), 
+                vector<double>(2*order+1, 0.)
+            };
+        }
+
+        CurveXYZFourier(Array _quadpoints, int _order) : Curve<Array>(_quadpoints), order(_order) {
             dofs = vector<vector<double>> {
                 vector<double>(2*order+1, 0.), 
                 vector<double>(2*order+1, 0.), 
@@ -57,7 +63,8 @@ class CurveXYZFourier : public Curve<Array> {
             return _dofs;
         }
 
-        void gamma_impl(Array& data) override {
+        void gamma_impl(Array& data, Array& quadpoints) override {
+            int numquadpoints = quadpoints.size();
             data *= 0;
             for (int k = 0; k < numquadpoints; ++k) {
                 for (int i = 0; i < 3; ++i) {

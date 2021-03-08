@@ -40,8 +40,8 @@ template <class PyCurveXYZFourierBase = PyCurveXYZFourier> class PyCurveXYZFouri
             return PyCurveXYZFourierBase::get_dofs();
         }
 
-        void gamma_impl(PyArray& data) override {
-            PyCurveXYZFourierBase::gamma_impl(data);
+        void gamma_impl(PyArray& data, PyArray& quadpoints) override {
+            PyCurveXYZFourierBase::gamma_impl(data, quadpoints);
         }
 };
 
@@ -61,8 +61,8 @@ template <class PyCurveRZFourierBase = PyCurveRZFourier> class PyCurveRZFourierT
             return PyCurveRZFourierBase::get_dofs();
         }
 
-        void gamma_impl(PyArray& data) override {
-            PyCurveRZFourierBase::gamma_impl(data);
+        void gamma_impl(PyArray& data, PyArray& quadpoints) override {
+            PyCurveRZFourierBase::gamma_impl(data, quadpoints);
         }
 };
 
@@ -171,6 +171,7 @@ PYBIND11_MODULE(simsgeopp, m) {
     py::class_<PyCurve, std::shared_ptr<PyCurve>, PyCurveTrampoline<PyCurve>>(m, "Curve")
         .def(py::init<vector<double>>())
         .def("gamma", &PyCurve::gamma)
+        .def("gamma_impl", &PyCurve::gamma_impl)
         .def("gammadash", &PyCurve::gammadash)
         .def("gammadashdash", &PyCurve::gammadashdash)
         .def("gammadashdashdash", &PyCurve::gammadashdashdash)
@@ -193,6 +194,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         //.def(py::init<int, int>())
         .def(py::init<vector<double>, int>())
         .def("gamma", &PyCurveXYZFourier::gamma)
+        .def("gamma_impl", &PyCurveXYZFourier::gamma_impl)
         .def("dgamma_by_dcoeff", &PyCurveXYZFourier::dgamma_by_dcoeff)
         .def("dgamma_by_dcoeff_vjp", &PyCurveXYZFourier::dgamma_by_dcoeff_vjp)
 
@@ -226,6 +228,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         //.def(py::init<int, int>())
         .def(py::init<vector<double>, int, int, bool>())
         .def("gamma", &PyCurveRZFourier::gamma)
+        .def("gamma_impl", &PyCurveRZFourier::gamma_impl)
         .def("dgamma_by_dcoeff", &PyCurveRZFourier::dgamma_by_dcoeff)
         .def("dgamma_by_dcoeff_vjp", &PyCurveRZFourier::dgamma_by_dcoeff_vjp)
 
