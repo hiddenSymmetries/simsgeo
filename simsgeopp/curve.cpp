@@ -63,8 +63,8 @@ class Curve {
         }
 
         Curve(vector<double> _quadpoints) {
-            quadpoints = xt::zeros<double>({_quadpoints.size()});
             numquadpoints = _quadpoints.size();
+            quadpoints = xt::zeros<double>({_quadpoints.size()});
             for (int i = 0; i < numquadpoints; ++i) {
                 quadpoints[i] = _quadpoints[i];
             }

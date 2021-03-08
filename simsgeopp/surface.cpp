@@ -13,6 +13,9 @@ using std::logic_error;
 #include "xtensor/xarray.hpp"
 #include "cachedarray.hpp"
 
+#include "curve.cpp"
+#include <Eigen/Dense>
+
 
 template<class Array>
 class Surface {
@@ -36,14 +39,61 @@ class Surface {
     public://protected:
         int numquadpoints_phi;
         int numquadpoints_theta;
-        vector<double> quadpoints_phi;
-        vector<double> quadpoints_theta;
+        Array quadpoints_phi;
+        Array quadpoints_theta;
 
     public:
 
-        Surface(vector<double> _quadpoints_phi, vector<double> _quadpoints_theta) : quadpoints_phi(_quadpoints_phi),quadpoints_theta( _quadpoints_theta) {
-            numquadpoints_phi = quadpoints_phi.size();
-            numquadpoints_theta = quadpoints_theta.size();
+        Surface(vector<double> _quadpoints_phi, vector<double> _quadpoints_theta) {
+            numquadpoints_phi = _quadpoints_phi.size();
+            numquadpoints_theta = _quadpoints_theta.size();
+
+            quadpoints_phi = xt::zeros<double>({numquadpoints_phi});
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                quadpoints_phi[i] = _quadpoints_phi[i];
+            }
+            quadpoints_theta = xt::zeros<double>({numquadpoints_theta});
+            for (int i = 0; i < numquadpoints_theta; ++i) {
+                quadpoints_theta[i] = _quadpoints_theta[i];
+            }
+        }
+
+        void fit_to_curve(Curve<Array>& curve, double radius) {
+            Array curvexyz = xt::zeros<double>({numquadpoints_phi, 3});
+            curve.gamma_impl(curvexyz, quadpoints_phi);
+            Array target_values = xt::zeros<double>({numquadpoints_phi, numquadpoints_theta, 3});
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                double phi = 2*M_PI*quadpoints_phi[i];
+                double R = sqrt(pow(curvexyz(i, 0), 2) + pow(curvexyz(i, 1), 2));
+                double z = curvexyz(i, 2);
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    double theta = 2*M_PI*quadpoints_theta[j];
+                    target_values(i, j, 0) = (R + radius * cos(theta))*cos(phi);
+                    target_values(i, j, 1) = (R + radius * cos(theta))*sin(phi);
+                    target_values(i, j, 2) = radius * sin(theta);
+                }
+            }
+            auto dg_dc = this->dgamma_by_dcoeff();
+            Eigen::MatrixXd A = Eigen::MatrixXd(numquadpoints_phi*numquadpoints_theta*3, num_dofs());
+            Eigen::VectorXd b = Eigen::VectorXd(numquadpoints_phi*numquadpoints_theta*3);
+            int counter = 0;
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    for (int d = 0; d < 3; ++d) {
+                        for (int c = 0; c  < num_dofs(); ++c ) {
+                            A(counter, c) = dg_dc(i, j, d, c);
+                        }
+                        b(counter) = target_values(i, j, d);
+                        counter++;
+                    }
+                }
+            }
+            Eigen::VectorXd x = A.fullPivHouseholderQr().solve(b);
+            auto dofs = vector<double>(num_dofs(), 0.);
+            for (int i = 0; i < num_dofs(); ++i) {
+                dofs[i] = x[i];
+            }
+            this->set_dofs(dofs);
         }
 
         void invalidate_cache() {

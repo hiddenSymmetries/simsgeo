@@ -21,7 +21,7 @@ class Surface():
         print("Aspect ratio is {:.8f}".format(self.aspect_ratio() ) )
         print("*************************") 
 
-    def plot(self, ax=None, show=True, plot_derivative=False, closed_loop=False, color=None, linestyle=None, apply_symmetries = True):
+    def plot(self, ax=None, show=True, plot_derivative=False, closed_loop=False, color=None, linestyle=None, apply_symmetries = True, scalars=None):
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
     
@@ -45,7 +45,10 @@ class Surface():
                 return data
         
         from mayavi import mlab
-        mlab.mesh(rep(gamma[:,:,0]), rep(gamma[:,:,1]), rep(gamma[:,:,2]))
+        if scalars is not None:
+            mlab.mesh(rep(gamma[:,:,0]), rep(gamma[:,:,1]), rep(gamma[:,:,2]), scalars=rep(scalars))
+        else:
+            mlab.mesh(rep(gamma[:,:,0]), rep(gamma[:,:,1]), rep(gamma[:,:,2]))
         mlab.mesh(rep(gamma[:,:,0]), rep(gamma[:,:,1]), rep(gamma[:,:,2]), representation='wireframe', color = (0,0,0))
         
 

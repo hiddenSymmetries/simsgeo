@@ -85,6 +85,10 @@ template <class PySurfaceRZFourierBase = PySurfaceRZFourier> class PySurfaceRZFo
         void gamma_impl(PyArray& data) override {
             PySurfaceRZFourierBase::gamma_impl(data);
         }
+
+        void fit_to_curve(PyCurve& curve, double radius) {
+            PySurfaceRZFourierBase::fit_to_curve(curve, radius);
+        }
 };
 
 template <class PySurfaceXYZFourierBase = PySurfaceXYZFourier> class PySurfaceXYZFourierTrampoline : public PySurfaceXYZFourierBase {
@@ -106,6 +110,10 @@ template <class PySurfaceXYZFourierBase = PySurfaceXYZFourier> class PySurfaceXY
         void gamma_impl(PyArray& data) override {
             PySurfaceXYZFourierBase::gamma_impl(data);
         }
+
+        void fit_to_curve(PyCurve& curve, double radius) {
+            PySurfaceXYZFourierBase::fit_to_curve(curve, radius);
+        }
 };
 
 
@@ -122,6 +130,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("dsurface_area_by_dcoeff", &PySurface::dsurface_area_by_dcoeff)
         .def("invalidate_cache", &PySurface::invalidate_cache)
         .def("set_dofs", &PySurface::set_dofs)
+        .def("fit_to_curve", &PySurface::fit_to_curve)
         .def_readonly("quadpoints_phi", &PySurface::quadpoints_phi)
         .def_readonly("quadpoints_theta", &PySurface::quadpoints_theta);
 
@@ -143,7 +152,8 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("normal", &PySurfaceRZFourier::normal)
         .def("dnormal_by_dcoeff", &PySurfaceRZFourier::dnormal_by_dcoeff)
         .def("surface_area", &PySurfaceRZFourier::surface_area)
-        .def("dsurface_area_by_dcoeff", &PySurfaceRZFourier::dsurface_area_by_dcoeff);
+        .def("dsurface_area_by_dcoeff", &PySurfaceRZFourier::dsurface_area_by_dcoeff)
+        .def("fit_to_curve", &PySurfaceRZFourier::fit_to_curve);
 
     py::class_<PySurfaceXYZFourier, std::shared_ptr<PySurfaceXYZFourier>, PySurfaceXYZFourierTrampoline<PySurfaceXYZFourier>>(m, "SurfaceXYZFourier")
         .def(py::init<int, int, int, bool, vector<double>,vector<double>>())
@@ -165,7 +175,8 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("normal", &PySurfaceXYZFourier::normal)
         .def("dnormal_by_dcoeff", &PySurfaceXYZFourier::dnormal_by_dcoeff)
         .def("surface_area", &PySurfaceXYZFourier::surface_area)
-        .def("dsurface_area_by_dcoeff", &PySurfaceXYZFourier::dsurface_area_by_dcoeff);
+        .def("dsurface_area_by_dcoeff", &PySurfaceXYZFourier::dsurface_area_by_dcoeff)
+        .def("fit_to_curve", &PySurfaceXYZFourier::fit_to_curve);
 
 
     py::class_<PyCurve, std::shared_ptr<PyCurve>, PyCurveTrampoline<PyCurve>>(m, "Curve")
@@ -190,7 +201,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def_readonly("quadpoints", &PyCurve::quadpoints);
 
 
-    py::class_<PyCurveXYZFourier, std::shared_ptr<PyCurveXYZFourier>, PyCurveXYZFourierTrampoline<PyCurveXYZFourier>>(m, "CurveXYZFourier")
+    py::class_<PyCurveXYZFourier, std::shared_ptr<PyCurveXYZFourier>, PyCurveXYZFourierTrampoline<PyCurveXYZFourier>, PyCurve>(m, "CurveXYZFourier")
         //.def(py::init<int, int>())
         .def(py::init<vector<double>, int>())
         .def("gamma", &PyCurveXYZFourier::gamma)
@@ -224,9 +235,13 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def_readonly("dofs", &PyCurveXYZFourier::dofs)
         .def_readonly("quadpoints", &PyCurveXYZFourier::quadpoints);
 
-    py::class_<PyCurveRZFourier, std::shared_ptr<PyCurveRZFourier>, PyCurveRZFourierTrampoline<PyCurveRZFourier>>(m, "CurveRZFourier")
+    py::class_<PyCurveRZFourier, std::shared_ptr<PyCurveRZFourier>, PyCurveRZFourierTrampoline<PyCurveRZFourier>, PyCurve>(m, "CurveRZFourier")
         //.def(py::init<int, int>())
         .def(py::init<vector<double>, int, int, bool>())
+        .def_readwrite("rc", &PyCurveRZFourier::rc)
+        .def_readwrite("rs", &PyCurveRZFourier::rs)
+        .def_readwrite("zc", &PyCurveRZFourier::zc)
+        .def_readwrite("zs", &PyCurveRZFourier::zs)
         .def("gamma", &PyCurveRZFourier::gamma)
         .def("gamma_impl", &PyCurveRZFourier::gamma_impl)
         .def("dgamma_by_dcoeff", &PyCurveRZFourier::dgamma_by_dcoeff)
@@ -255,7 +270,6 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("set_dofs", &PyCurveRZFourier::set_dofs)
         .def("num_dofs", &PyCurveRZFourier::num_dofs)
         .def("invalidate_cache", &PyCurveRZFourier::invalidate_cache)
-        .def_readonly("dofs", &PyCurveRZFourier::dofs)
         .def_readonly("quadpoints", &PyCurveRZFourier::quadpoints)
         .def_property_readonly("nfp", &PyCurveRZFourier::get_nfp);
 

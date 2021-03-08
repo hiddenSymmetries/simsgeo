@@ -11,7 +11,6 @@ class CurveRZFourier : public Curve<Array> {
     public:
         using Curve<Array>::quadpoints;
         using Curve<Array>::numquadpoints;
-        vector<vector<double>> dofs;
 
         Array rc;
         Array rs;

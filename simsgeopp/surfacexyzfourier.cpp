@@ -44,6 +44,8 @@ class SurfaceXYZFourier : public Surface<Array> {
                 zs = xt::zeros<double>({mpol, 2*ntor+1});
             }
 
+
+
         int num_dofs() override {
             //if(stellsym)
             //    return 2*mpol*(2*ntor+1) - ntor - (ntor+1);
