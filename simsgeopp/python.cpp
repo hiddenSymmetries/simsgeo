@@ -15,54 +15,54 @@ typedef SurfaceXYZFourier<PyArray> PySurfaceXYZFourier;
 #include "curve.cpp"
 #include "pycurve.cpp"
 
-#include "fouriercurve.cpp"
-typedef FourierCurve<PyArray> PyFourierCurve;
-#include "magneticaxis.cpp"
-typedef StelleratorSymmetricCylindricalFourierCurve<PyArray> PyStelleratorSymmetricCylindricalFourierCurve;
+#include "curvexyzfourier.cpp"
+typedef CurveXYZFourier<PyArray> PyCurveXYZFourier;
+#include "curverzfourier.cpp"
+typedef CurveRZFourier<PyArray> PyCurveRZFourier;
 
 #include "biot_savart.h"
 
 namespace py = pybind11;
 
-template <class PyFourierCurveBase = PyFourierCurve> class PyFourierCurveTrampoline : public PyCurveTrampoline<PyFourierCurveBase> {
+template <class PyCurveXYZFourierBase = PyCurveXYZFourier> class PyCurveXYZFourierTrampoline : public PyCurveTrampoline<PyCurveXYZFourierBase> {
     public:
-        using PyCurveTrampoline<PyFourierCurveBase>::PyCurveTrampoline; // Inherit constructors
+        using PyCurveTrampoline<PyCurveXYZFourierBase>::PyCurveTrampoline; // Inherit constructors
 
         int num_dofs() override {
-            return PyFourierCurveBase::num_dofs();
+            return PyCurveXYZFourierBase::num_dofs();
         }
 
         void set_dofs_impl(const vector<double>& _dofs) override {
-            PyFourierCurveBase::set_dofs_impl(_dofs);
+            PyCurveXYZFourierBase::set_dofs_impl(_dofs);
         }
 
         vector<double> get_dofs() override {
-            return PyFourierCurveBase::get_dofs();
+            return PyCurveXYZFourierBase::get_dofs();
         }
 
         void gamma_impl(PyArray& data) override {
-            PyFourierCurveBase::gamma_impl(data);
+            PyCurveXYZFourierBase::gamma_impl(data);
         }
 };
 
-template <class PyStelleratorSymmetricCylindricalFourierCurveBase = PyStelleratorSymmetricCylindricalFourierCurve> class PyStelleratorSymmetricCylindricalFourierCurveTrampoline : public PyCurveTrampoline<PyStelleratorSymmetricCylindricalFourierCurveBase> {
+template <class PyCurveRZFourierBase = PyCurveRZFourier> class PyCurveRZFourierTrampoline : public PyCurveTrampoline<PyCurveRZFourierBase> {
     public:
-        using PyCurveTrampoline<PyStelleratorSymmetricCylindricalFourierCurveBase>::PyCurveTrampoline; // Inherit constructors
+        using PyCurveTrampoline<PyCurveRZFourierBase>::PyCurveTrampoline; // Inherit constructors
 
         int num_dofs() override {
-            return PyStelleratorSymmetricCylindricalFourierCurveBase::num_dofs();
+            return PyCurveRZFourierBase::num_dofs();
         }
 
         void set_dofs_impl(const vector<double>& _dofs) override {
-            PyStelleratorSymmetricCylindricalFourierCurveBase::set_dofs_impl(_dofs);
+            PyCurveRZFourierBase::set_dofs_impl(_dofs);
         }
 
         vector<double> get_dofs() override {
-            return PyStelleratorSymmetricCylindricalFourierCurveBase::get_dofs();
+            return PyCurveRZFourierBase::get_dofs();
         }
 
         void gamma_impl(PyArray& data) override {
-            PyStelleratorSymmetricCylindricalFourierCurveBase::gamma_impl(data);
+            PyCurveRZFourierBase::gamma_impl(data);
         }
 };
 
@@ -184,77 +184,77 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("dkappa_by_dcoeff", &PyCurve::dkappa_by_dcoeff)
         .def("torsion", &PyCurve::torsion)
         .def("dtorsion_by_dcoeff", &PyCurve::dtorsion_by_dcoeff)
-        .def("invalidate_cache", &PyFourierCurve::invalidate_cache)
-        .def("set_dofs", &PyFourierCurve::set_dofs)
+        .def("invalidate_cache", &PyCurveXYZFourier::invalidate_cache)
+        .def("set_dofs", &PyCurveXYZFourier::set_dofs)
         .def_readonly("quadpoints", &PyCurve::quadpoints);
 
 
-    py::class_<PyFourierCurve, std::shared_ptr<PyFourierCurve>, PyFourierCurveTrampoline<PyFourierCurve>>(m, "FourierCurve")
+    py::class_<PyCurveXYZFourier, std::shared_ptr<PyCurveXYZFourier>, PyCurveXYZFourierTrampoline<PyCurveXYZFourier>>(m, "CurveXYZFourier")
         //.def(py::init<int, int>())
         .def(py::init<vector<double>, int>())
-        .def("gamma", &PyFourierCurve::gamma)
-        .def("dgamma_by_dcoeff", &PyFourierCurve::dgamma_by_dcoeff)
-        .def("dgamma_by_dcoeff_vjp", &PyFourierCurve::dgamma_by_dcoeff_vjp)
+        .def("gamma", &PyCurveXYZFourier::gamma)
+        .def("dgamma_by_dcoeff", &PyCurveXYZFourier::dgamma_by_dcoeff)
+        .def("dgamma_by_dcoeff_vjp", &PyCurveXYZFourier::dgamma_by_dcoeff_vjp)
 
-        .def("gammadash", &PyFourierCurve::gammadash)
-        .def("dgammadash_by_dcoeff", &PyFourierCurve::dgammadash_by_dcoeff)
-        .def("dgammadash_by_dcoeff_vjp", &PyFourierCurve::dgammadash_by_dcoeff_vjp)
+        .def("gammadash", &PyCurveXYZFourier::gammadash)
+        .def("dgammadash_by_dcoeff", &PyCurveXYZFourier::dgammadash_by_dcoeff)
+        .def("dgammadash_by_dcoeff_vjp", &PyCurveXYZFourier::dgammadash_by_dcoeff_vjp)
 
-        .def("gammadashdash", &PyFourierCurve::gammadashdash)
-        .def("dgammadashdash_by_dcoeff", &PyFourierCurve::dgammadashdash_by_dcoeff)
-        .def("dgammadashdash_by_dcoeff_vjp", &PyFourierCurve::dgammadashdash_by_dcoeff_vjp)
+        .def("gammadashdash", &PyCurveXYZFourier::gammadashdash)
+        .def("dgammadashdash_by_dcoeff", &PyCurveXYZFourier::dgammadashdash_by_dcoeff)
+        .def("dgammadashdash_by_dcoeff_vjp", &PyCurveXYZFourier::dgammadashdash_by_dcoeff_vjp)
 
-        .def("gammadashdashdash", &PyFourierCurve::gammadashdashdash)
-        .def("dgammadashdashdash_by_dcoeff", &PyFourierCurve::dgammadashdashdash_by_dcoeff)
-        .def("dgammadashdashdash_by_dcoeff_vjp", &PyFourierCurve::dgammadashdashdash_by_dcoeff_vjp)
+        .def("gammadashdashdash", &PyCurveXYZFourier::gammadashdashdash)
+        .def("dgammadashdashdash_by_dcoeff", &PyCurveXYZFourier::dgammadashdashdash_by_dcoeff)
+        .def("dgammadashdashdash_by_dcoeff_vjp", &PyCurveXYZFourier::dgammadashdashdash_by_dcoeff_vjp)
 
-        .def("incremental_arclength", &PyFourierCurve::incremental_arclength)
-        .def("dincremental_arclength_by_dcoeff", &PyFourierCurve::dincremental_arclength_by_dcoeff)
-        .def("kappa", &PyFourierCurve::kappa)
-        .def("dkappa_by_dcoeff", &PyFourierCurve::dkappa_by_dcoeff)
-        .def("torsion", &PyFourierCurve::torsion)
-        .def("dtorsion_by_dcoeff", &PyFourierCurve::dtorsion_by_dcoeff)
+        .def("incremental_arclength", &PyCurveXYZFourier::incremental_arclength)
+        .def("dincremental_arclength_by_dcoeff", &PyCurveXYZFourier::dincremental_arclength_by_dcoeff)
+        .def("kappa", &PyCurveXYZFourier::kappa)
+        .def("dkappa_by_dcoeff", &PyCurveXYZFourier::dkappa_by_dcoeff)
+        .def("torsion", &PyCurveXYZFourier::torsion)
+        .def("dtorsion_by_dcoeff", &PyCurveXYZFourier::dtorsion_by_dcoeff)
 
-        .def("get_dofs", &PyFourierCurve::get_dofs)
-        .def("set_dofs", &PyFourierCurve::set_dofs)
-        .def("num_dofs", &PyFourierCurve::num_dofs)
-        .def("invalidate_cache", &PyFourierCurve::invalidate_cache)
-        .def_readonly("dofs", &PyFourierCurve::dofs)
-        .def_readonly("quadpoints", &PyFourierCurve::quadpoints);
+        .def("get_dofs", &PyCurveXYZFourier::get_dofs)
+        .def("set_dofs", &PyCurveXYZFourier::set_dofs)
+        .def("num_dofs", &PyCurveXYZFourier::num_dofs)
+        .def("invalidate_cache", &PyCurveXYZFourier::invalidate_cache)
+        .def_readonly("dofs", &PyCurveXYZFourier::dofs)
+        .def_readonly("quadpoints", &PyCurveXYZFourier::quadpoints);
 
-    py::class_<PyStelleratorSymmetricCylindricalFourierCurve, std::shared_ptr<PyStelleratorSymmetricCylindricalFourierCurve>, PyStelleratorSymmetricCylindricalFourierCurveTrampoline<PyStelleratorSymmetricCylindricalFourierCurve>>(m, "StelleratorSymmetricCylindricalFourierCurve")
+    py::class_<PyCurveRZFourier, std::shared_ptr<PyCurveRZFourier>, PyCurveRZFourierTrampoline<PyCurveRZFourier>>(m, "CurveRZFourier")
         //.def(py::init<int, int>())
-        .def(py::init<vector<double>, int, int>())
-        .def("gamma", &PyStelleratorSymmetricCylindricalFourierCurve::gamma)
-        .def("dgamma_by_dcoeff", &PyStelleratorSymmetricCylindricalFourierCurve::dgamma_by_dcoeff)
-        .def("dgamma_by_dcoeff_vjp", &PyStelleratorSymmetricCylindricalFourierCurve::dgamma_by_dcoeff_vjp)
+        .def(py::init<vector<double>, int, int, bool>())
+        .def("gamma", &PyCurveRZFourier::gamma)
+        .def("dgamma_by_dcoeff", &PyCurveRZFourier::dgamma_by_dcoeff)
+        .def("dgamma_by_dcoeff_vjp", &PyCurveRZFourier::dgamma_by_dcoeff_vjp)
 
-        .def("gammadash", &PyStelleratorSymmetricCylindricalFourierCurve::gammadash)
-        .def("dgammadash_by_dcoeff", &PyStelleratorSymmetricCylindricalFourierCurve::dgammadash_by_dcoeff)
-        .def("dgammadash_by_dcoeff_vjp", &PyStelleratorSymmetricCylindricalFourierCurve::dgammadash_by_dcoeff_vjp)
+        .def("gammadash", &PyCurveRZFourier::gammadash)
+        .def("dgammadash_by_dcoeff", &PyCurveRZFourier::dgammadash_by_dcoeff)
+        .def("dgammadash_by_dcoeff_vjp", &PyCurveRZFourier::dgammadash_by_dcoeff_vjp)
 
-        .def("gammadashdash", &PyStelleratorSymmetricCylindricalFourierCurve::gammadashdash)
-        .def("dgammadashdash_by_dcoeff", &PyStelleratorSymmetricCylindricalFourierCurve::dgammadashdash_by_dcoeff)
-        .def("dgammadashdash_by_dcoeff_vjp", &PyStelleratorSymmetricCylindricalFourierCurve::dgammadashdash_by_dcoeff_vjp)
+        .def("gammadashdash", &PyCurveRZFourier::gammadashdash)
+        .def("dgammadashdash_by_dcoeff", &PyCurveRZFourier::dgammadashdash_by_dcoeff)
+        .def("dgammadashdash_by_dcoeff_vjp", &PyCurveRZFourier::dgammadashdash_by_dcoeff_vjp)
 
-        .def("gammadashdashdash", &PyStelleratorSymmetricCylindricalFourierCurve::gammadashdashdash)
-        .def("dgammadashdashdash_by_dcoeff", &PyStelleratorSymmetricCylindricalFourierCurve::dgammadashdashdash_by_dcoeff)
-        .def("dgammadashdashdash_by_dcoeff_vjp", &PyStelleratorSymmetricCylindricalFourierCurve::dgammadashdashdash_by_dcoeff_vjp)
+        .def("gammadashdashdash", &PyCurveRZFourier::gammadashdashdash)
+        .def("dgammadashdashdash_by_dcoeff", &PyCurveRZFourier::dgammadashdashdash_by_dcoeff)
+        .def("dgammadashdashdash_by_dcoeff_vjp", &PyCurveRZFourier::dgammadashdashdash_by_dcoeff_vjp)
 
-        .def("incremental_arclength", &PyStelleratorSymmetricCylindricalFourierCurve::incremental_arclength)
-        .def("dincremental_arclength_by_dcoeff", &PyStelleratorSymmetricCylindricalFourierCurve::dincremental_arclength_by_dcoeff)
-        .def("kappa", &PyStelleratorSymmetricCylindricalFourierCurve::kappa)
-        .def("dkappa_by_dcoeff", &PyStelleratorSymmetricCylindricalFourierCurve::dkappa_by_dcoeff)
-        .def("torsion", &PyStelleratorSymmetricCylindricalFourierCurve::torsion)
-        .def("dtorsion_by_dcoeff", &PyStelleratorSymmetricCylindricalFourierCurve::dtorsion_by_dcoeff)
+        .def("incremental_arclength", &PyCurveRZFourier::incremental_arclength)
+        .def("dincremental_arclength_by_dcoeff", &PyCurveRZFourier::dincremental_arclength_by_dcoeff)
+        .def("kappa", &PyCurveRZFourier::kappa)
+        .def("dkappa_by_dcoeff", &PyCurveRZFourier::dkappa_by_dcoeff)
+        .def("torsion", &PyCurveRZFourier::torsion)
+        .def("dtorsion_by_dcoeff", &PyCurveRZFourier::dtorsion_by_dcoeff)
 
-        .def("get_dofs", &PyStelleratorSymmetricCylindricalFourierCurve::get_dofs)
-        .def("set_dofs", &PyStelleratorSymmetricCylindricalFourierCurve::set_dofs)
-        .def("num_dofs", &PyStelleratorSymmetricCylindricalFourierCurve::num_dofs)
-        .def("invalidate_cache", &PyStelleratorSymmetricCylindricalFourierCurve::invalidate_cache)
-        .def_readonly("dofs", &PyStelleratorSymmetricCylindricalFourierCurve::dofs)
-        .def_readonly("quadpoints", &PyStelleratorSymmetricCylindricalFourierCurve::quadpoints)
-        .def_property_readonly("nfp", &PyStelleratorSymmetricCylindricalFourierCurve::get_nfp);
+        .def("get_dofs", &PyCurveRZFourier::get_dofs)
+        .def("set_dofs", &PyCurveRZFourier::set_dofs)
+        .def("num_dofs", &PyCurveRZFourier::num_dofs)
+        .def("invalidate_cache", &PyCurveRZFourier::invalidate_cache)
+        .def_readonly("dofs", &PyCurveRZFourier::dofs)
+        .def_readonly("quadpoints", &PyCurveRZFourier::quadpoints)
+        .def_property_readonly("nfp", &PyCurveRZFourier::get_nfp);
 
     m.def("biot_savart", &biot_savart);
     m.def("biot_savart_by_dcoilcoeff_all_vjp_full", &biot_savart_by_dcoilcoeff_all_vjp_full);

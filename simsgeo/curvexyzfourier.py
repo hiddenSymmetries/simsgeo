@@ -2,7 +2,7 @@ from .curve import Curve
 import simsgeopp as sgpp
 import numpy as np
 
-class FourierCurve(sgpp.FourierCurve, Curve):
+class CurveXYZFourier(sgpp.CurveXYZFourier, Curve):
 
     def __init__(self, quadpoints, order):
         if isinstance(quadpoints, int):
@@ -10,13 +10,13 @@ class FourierCurve(sgpp.FourierCurve, Curve):
         elif isinstance(quadpoints, np.ndarray):
             quadpoints = list(quadpoints)
         Curve.__init__(self)
-        sgpp.FourierCurve.__init__(self, quadpoints, order)
+        sgpp.CurveXYZFourier.__init__(self, quadpoints, order)
 
     def get_dofs(self):
-        return np.asarray(sgpp.FourierCurve.get_dofs(self))
+        return np.asarray(sgpp.CurveXYZFourier.get_dofs(self))
 
     def set_dofs(self, dofs):
-        sgpp.FourierCurve.set_dofs(self, dofs)
+        sgpp.CurveXYZFourier.set_dofs(self, dofs)
         for d in self.dependencies:
             d.invalidate_cache()
 
@@ -44,9 +44,9 @@ def jaxfouriercurve_pure(dofs, quadpoints, order):
     return gamma
 
 
-class JaxFourierCurve(JaxCurve):
+class JaxCurveXYZFourier(JaxCurve):
 
-    """ A Python+Jax implementation of the FourierCurve """
+    """ A Python+Jax implementation of the CurveXYZFourier """
 
     def __init__(self, quadpoints, order):
         if isinstance(quadpoints, int):

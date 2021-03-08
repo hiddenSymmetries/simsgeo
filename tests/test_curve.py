@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
-from simsgeo import JaxStelleratorSymmetricCylindricalFourierCurve, StelleratorSymmetricCylindricalFourierCurve, \
-    FourierCurve, JaxFourierCurve, RotatedCurve
+from simsgeo import JaxCurveRZFourier, CurveRZFourier, \
+    CurveXYZFourier, JaxCurveXYZFourier, RotatedCurve
 from simsgeo import parameters
 parameters['jit'] = False
 
@@ -40,22 +40,22 @@ def get_curve(curvetype, rotated, x=np.asarray([0.5])):
     rand_scale=0.01
     order = 4
 
-    if curvetype == "FourierCurve":
-        curve = FourierCurve(x, order)
-    elif curvetype == "JaxFourierCurve":
-        curve = JaxFourierCurve(x, order)
-    elif curvetype == "StelleratorSymmetricCylindricalFourierCurve":
-        curve = StelleratorSymmetricCylindricalFourierCurve(x, order, 2)
-    elif curvetype == "JaxStelleratorSymmetricCylindricalFourierCurve":
-        curve = JaxStelleratorSymmetricCylindricalFourierCurve(x, order, 2)
+    if curvetype == "CurveXYZFourier":
+        curve = CurveXYZFourier(x, order)
+    elif curvetype == "JaxCurveXYZFourier":
+        curve = JaxCurveXYZFourier(x, order)
+    elif curvetype == "CurveRZFourier":
+        curve = CurveRZFourier(x, order, 2, False)
+    elif curvetype == "JaxCurveRZFourier":
+        curve = JaxCurveRZFourier(x, order, 2)
     else:
         assert False
     dofs = np.zeros((curve.num_dofs(), ))
-    if curvetype in ["FourierCurve", "JaxFourierCurve"]:
+    if curvetype in ["CurveXYZFourier", "JaxCurveXYZFourier"]:
         dofs[1] = 1.
         dofs[2*order+3] = 1.
         dofs[4*order+3] = 1.
-    elif curvetype in ["StelleratorSymmetricCylindricalFourierCurve", "JaxStelleratorSymmetricCylindricalFourierCurve"]:
+    elif curvetype in ["CurveRZFourier", "JaxCurveRZFourier"]:
         dofs[0] = 1.
         dofs[1] = 0.1
         dofs[order+1] = 0.1
@@ -72,7 +72,7 @@ def get_curve(curvetype, rotated, x=np.asarray([0.5])):
 
 class Testing(unittest.TestCase):
 
-    curvetypes = ["FourierCurve", "JaxFourierCurve", "JaxStelleratorSymmetricCylindricalFourierCurve", "StelleratorSymmetricCylindricalFourierCurve"]
+    curvetypes = ["CurveXYZFourier", "JaxCurveXYZFourier", "JaxCurveRZFourier", "CurveRZFourier"]
 
     def subtest_curve_first_derivative(self, curvetype, rotated):
         h = 0.1
@@ -130,6 +130,12 @@ class Testing(unittest.TestCase):
             err = np.linalg.norm(deriv_est-deriv)
             assert err < 0.55 * err_old
             err_old = err
+
+    def test_curve_third_derivative(self):
+        for curvetype in self.curvetypes:
+            for rotated in [True, False]:
+                with self.subTest(curvetype=curvetype, rotated=rotated):
+                    self.subtest_curve_third_derivative(curvetype, rotated)
 
     def subtest_coil_dof_numbering(self, curvetype, rotated):
         cfc = get_curve(curvetype, rotated)
