@@ -175,9 +175,9 @@ s.plot(scalars=absB)
 
 
 import matplotlib.pyplot as plt
-for i in range(nphi):
-    plt.plot(thetas, absB[i,:])
-    plt.plot(thetas, absB0[i,:], ':')
+for i in range(ntheta):
+    plt.plot(phis, absB[:,i])
+    plt.plot(phis, absB0[:,i], ':')
 plt.show()
 
 
