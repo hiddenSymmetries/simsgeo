@@ -172,16 +172,12 @@ class CurveRZFourier : public Curve<Array> {
                 double phi = 2 * M_PI * quadpoints[k];
                 for (int i = 0; i < order+1; ++i) {
                     data(k, 0) += rc[i]*(
-                            +2*pow(nfp*i, 2)*cos(nfp*i*phi)*sin(phi)
-                            +2*(nfp*i)*sin(nfp*i*phi)*cos(phi)
-                            +(pow(nfp*i, 2) + 1)*(nfp*i)*sin(nfp*i*phi)*cos(phi)
-                            +(pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*sin(phi)
+                            +(3*pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*sin(phi)
+                            +(pow(nfp*i, 2) + 3)*(nfp*i)*sin(nfp*i*phi)*cos(phi)
                             );
                     data(k, 1) += rc[i]*(
-                            -2*pow(nfp*i, 2)*cos(nfp*i*phi)*cos(phi)
-                            +2*(nfp*i)*   sin(nfp*i*phi)*sin(phi)
-                            +(pow(nfp*i, 2) + 1)*(nfp*i)*sin(nfp*i*phi)*sin(phi)
-                            -(pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*cos(phi)
+                            +(pow(nfp*i, 2) + 3)*(nfp*i)*sin(nfp*i*phi)*sin(phi)
+                            -(3*pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*cos(phi)
                             );
                 }
                 for (int i = 1; i < order+1; ++i) {
@@ -193,16 +189,12 @@ class CurveRZFourier : public Curve<Array> {
                     double phi = 2 * M_PI * quadpoints[k];
                     for (int i = 1; i < order+1; ++i) {
                         data(k, 0) += rs[i-1]*(
-                                -(pow(nfp*i,2)+1) * (nfp*i) * cos(nfp*i*phi)*cos(phi)
-                                +(pow(nfp*i,2)+1) * sin(nfp*i*phi)*sin(phi)
-                                +2*pow(nfp*i, 2)*sin(nfp*i*phi)*sin(phi)
-                                -2*(i*nfp)*cos(nfp*i*phi)*cos(phi)
+                                -(pow(nfp*i,2)+3) * (nfp*i) * cos(nfp*i*phi)*cos(phi)
+                                +(3*pow(nfp*i,2)+1) * sin(nfp*i*phi)*sin(phi)
                                 );
                         data(k, 1) += rs[i-1]*(
-                                -(pow(nfp*i,2)+1)*(nfp*i)*cos(nfp*i*phi)*sin(phi) 
-                                -(pow(nfp*i,2)+1)*sin(nfp*i*phi)*cos(phi) 
-                                - 2*pow(nfp*i,2)*sin(nfp*i*phi)*cos(phi)
-                                - 2*(nfp*i)*cos(nfp*i*phi)*sin(phi)
+                                -(pow(nfp*i,2)+3)*(nfp*i)*cos(nfp*i*phi)*sin(phi) 
+                                -(3*pow(nfp*i,2)+1)*sin(nfp*i*phi)*cos(phi) 
                                 );
                     }
                     for (int i = 0; i < order+1; ++i) {
@@ -234,8 +226,7 @@ class CurveRZFourier : public Curve<Array> {
                     }
                 }
                 for (int i = 1; i < order+1; ++i) {
-                    data(k, 2, counter) = sin(nfp*i*phi);
-                    counter++;
+                    data(k, 2, counter) = sin(nfp*i*phi); counter++;
                 }
             }
         }
@@ -302,32 +293,24 @@ class CurveRZFourier : public Curve<Array> {
                 int counter = 0;
                 for (int i = 0; i < order+1; ++i) {
                     data(k, 0, counter) = (
-                            +2*pow(nfp*i, 2)*cos(nfp*i*phi)*sin(phi)
-                            +2*(nfp*i)*sin(nfp*i*phi)*cos(phi)
-                            +(pow(nfp*i, 2) + 1)*(nfp*i)*sin(nfp*i*phi)*cos(phi)
-                            +(pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*sin(phi)
+                            +(3*pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*sin(phi)
+                            +(pow(nfp*i, 2) + 3)*(nfp*i)*sin(nfp*i*phi)*cos(phi)
                             );
                     data(k, 1, counter) = (
-                            -2*pow(nfp*i, 2)*cos(nfp*i*phi)*cos(phi)
-                            +2*(nfp*i)*   sin(nfp*i*phi)*sin(phi)
-                            +(pow(nfp*i, 2) + 1)*(nfp*i)*sin(nfp*i*phi)*sin(phi)
-                            -(pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*cos(phi)
+                            +(pow(nfp*i, 2) + 3)*(nfp*i)*sin(nfp*i*phi)*sin(phi)
+                            -(3*pow(nfp*i, 2) + 1)*cos(nfp*i*phi)*cos(phi)
                             );
                     counter++;
                 }
                 if(!stellsym){
                     for (int i = 1; i < order+1; ++i) {
                         data(k, 0, counter) = (
-                                -(pow(nfp*i,2)+1) * (nfp*i) * cos(nfp*i*phi)*cos(phi)
-                                +(pow(nfp*i,2)+1) * sin(nfp*i*phi)*sin(phi)
-                                +2*pow(nfp*i, 2)*sin(nfp*i*phi)*sin(phi)
-                                -2*(i*nfp)*cos(nfp*i*phi)*cos(phi)
+                                -(pow(nfp*i,2)+3) * (nfp*i) * cos(nfp*i*phi)*cos(phi)
+                                +(3*pow(nfp*i,2)+1) * sin(nfp*i*phi)*sin(phi)
                                 );
                         data(k, 1, counter) = (
-                                -(pow(nfp*i,2)+1)*(nfp*i)*cos(nfp*i*phi)*sin(phi) 
-                                -(pow(nfp*i,2)+1)*sin(nfp*i*phi)*cos(phi) 
-                                - 2*pow(nfp*i,2)*sin(nfp*i*phi)*cos(phi)
-                                - 2*(nfp*i)*cos(nfp*i*phi)*sin(phi)
+                                -(pow(nfp*i,2)+3)*(nfp*i)*cos(nfp*i*phi)*sin(phi) 
+                                -(3*pow(nfp*i,2)+1)*sin(nfp*i*phi)*cos(phi) 
                                 );
                         counter++;
                     }
