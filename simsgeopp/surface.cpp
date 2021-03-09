@@ -96,6 +96,51 @@ class Surface {
             this->set_dofs(dofs);
         }
 
+        void scale_surface(double scale) {
+            Array target_values = xt::zeros<double>({numquadpoints_phi, numquadpoints_theta, 3});
+            auto gamma = this->gamma();
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                double phi = 2*M_PI*quadpoints_phi[i];
+                double meanx = 0.;
+                double meany = 0.;
+                double meanz = 0.;
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    meanx += gamma(i, j, 0);
+                    meany += gamma(i, j, 1);
+                    meanz += gamma(i, j, 2);
+                }
+                meanx *= 1./numquadpoints_theta;
+                meany *= 1./numquadpoints_theta;
+                meanz *= 1./numquadpoints_theta;
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    target_values(i, j, 0) = meanx + scale * (gamma(i, j, 0) - meanx);
+                    target_values(i, j, 1) = meany + scale * (gamma(i, j, 1) - meany);
+                    target_values(i, j, 2) = meanz + scale * (gamma(i, j, 2) - meanz);
+                }
+            }
+            auto dg_dc = this->dgamma_by_dcoeff();
+            Eigen::MatrixXd A = Eigen::MatrixXd(numquadpoints_phi*numquadpoints_theta*3, num_dofs());
+            Eigen::VectorXd b = Eigen::VectorXd(numquadpoints_phi*numquadpoints_theta*3);
+            int counter = 0;
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    for (int d = 0; d < 3; ++d) {
+                        for (int c = 0; c  < num_dofs(); ++c ) {
+                            A(counter, c) = dg_dc(i, j, d, c);
+                        }
+                        b(counter) = target_values(i, j, d);
+                        counter++;
+                    }
+                }
+            }
+            Eigen::VectorXd x = A.fullPivHouseholderQr().solve(b);
+            auto dofs = vector<double>(num_dofs(), 0.);
+            for (int i = 0; i < num_dofs(); ++i) {
+                dofs[i] = x[i];
+            }
+            this->set_dofs(dofs);
+        }
+
         void invalidate_cache() {
 
             for (auto it = cache.begin(); it != cache.end(); ++it) {
