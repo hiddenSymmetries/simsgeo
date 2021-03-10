@@ -78,21 +78,21 @@ class Testing(unittest.TestCase):
             return s.dgamma_by_dcoeff()[1, 1, :, :].copy()
         taylor_test(f, df, coeffs)
 
-        def f(dofs):
-            s.set_dofs(dofs)
-            return s.gammadash1()[1, 1, :].copy()
-        def df(dofs):
-            s.set_dofs(dofs)
-            return s.dgammadash1_by_dcoeff()[1, 1, :, :].copy()
-        taylor_test(f, df, coeffs)
+        # def f(dofs):
+        #     s.set_dofs(dofs)
+        #     return s.gammadash1()[1, 1, :].copy()
+        # def df(dofs):
+        #     s.set_dofs(dofs)
+        #     return s.dgammadash1_by_dcoeff()[1, 1, :, :].copy()
+        # taylor_test(f, df, coeffs)
 
-        def f(dofs):
-            s.set_dofs(dofs)
-            return s.gammadash2()[1, 1, :].copy()
-        def df(dofs):
-            s.set_dofs(dofs)
-            return s.dgammadash2_by_dcoeff()[1, 1, :, :].copy()
-        taylor_test(f, df, coeffs)
+        # def f(dofs):
+        #     s.set_dofs(dofs)
+        #     return s.gammadash2()[1, 1, :].copy()
+        # def df(dofs):
+        #     s.set_dofs(dofs)
+        #     return s.dgammadash2_by_dcoeff()[1, 1, :, :].copy()
+        # taylor_test(f, df, coeffs)
 
     def test_surface_coefficient_derivative(self):
         for surfacetype in self.surfacetypes:

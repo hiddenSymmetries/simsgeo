@@ -58,21 +58,15 @@ class Surface {
             }
         }
 
-        void fit_to_curve(Curve<Array>& curve, double radius) {
-            Array curvexyz = xt::zeros<double>({numquadpoints_phi, 3});
-            curve.gamma_impl(curvexyz, quadpoints_phi);
-            Array target_values = xt::zeros<double>({numquadpoints_phi, numquadpoints_theta, 3});
-            for (int i = 0; i < numquadpoints_phi; ++i) {
-                double phi = 2*M_PI*quadpoints_phi[i];
-                double R = sqrt(pow(curvexyz(i, 0), 2) + pow(curvexyz(i, 1), 2));
-                double z = curvexyz(i, 2);
-                for (int j = 0; j < numquadpoints_theta; ++j) {
-                    double theta = 2*M_PI*quadpoints_theta[j];
-                    target_values(i, j, 0) = (R + radius * cos(theta))*cos(phi);
-                    target_values(i, j, 1) = (R + radius * cos(theta))*sin(phi);
-                    target_values(i, j, 2) = radius * sin(theta);
-                }
-            }
+
+        void least_squares_fit(Array& target_values) {
+            if(target_values.shape(0) != numquadpoints_phi)
+                throw std::runtime_error("Wrong first dimension for target_values. Should match numquadpoints_phi.");
+            if(target_values.shape(1) != numquadpoints_theta)
+                throw std::runtime_error("Wrong second dimension for target_values. Should match numquadpoints_theta.");
+            if(target_values.shape(2) != 3)
+                throw std::runtime_error("Wrong third dimension for target_values. Should be 3.");
+
             auto dg_dc = this->dgamma_by_dcoeff();
             Eigen::MatrixXd A = Eigen::MatrixXd(numquadpoints_phi*numquadpoints_theta*3, num_dofs());
             Eigen::VectorXd b = Eigen::VectorXd(numquadpoints_phi*numquadpoints_theta*3);
@@ -94,6 +88,24 @@ class Surface {
                 dofs[i] = x[i];
             }
             this->set_dofs(dofs);
+        }
+
+        void fit_to_curve(Curve<Array>& curve, double radius) {
+            Array curvexyz = xt::zeros<double>({numquadpoints_phi, 3});
+            curve.gamma_impl(curvexyz, quadpoints_phi);
+            Array target_values = xt::zeros<double>({numquadpoints_phi, numquadpoints_theta, 3});
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                double phi = 2*M_PI*quadpoints_phi[i];
+                double R = sqrt(pow(curvexyz(i, 0), 2) + pow(curvexyz(i, 1), 2));
+                double z = curvexyz(i, 2);
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    double theta = 2*M_PI*quadpoints_theta[j];
+                    target_values(i, j, 0) = (R + radius * cos(theta))*cos(phi);
+                    target_values(i, j, 1) = (R + radius * cos(theta))*sin(phi);
+                    target_values(i, j, 2) = radius * sin(theta);
+                }
+            }
+            this->least_squares_fit(target_values);
         }
 
         void scale_surface(double scale) {
@@ -118,27 +130,7 @@ class Surface {
                     target_values(i, j, 2) = meanz + scale * (gamma(i, j, 2) - meanz);
                 }
             }
-            auto dg_dc = this->dgamma_by_dcoeff();
-            Eigen::MatrixXd A = Eigen::MatrixXd(numquadpoints_phi*numquadpoints_theta*3, num_dofs());
-            Eigen::VectorXd b = Eigen::VectorXd(numquadpoints_phi*numquadpoints_theta*3);
-            int counter = 0;
-            for (int i = 0; i < numquadpoints_phi; ++i) {
-                for (int j = 0; j < numquadpoints_theta; ++j) {
-                    for (int d = 0; d < 3; ++d) {
-                        for (int c = 0; c  < num_dofs(); ++c ) {
-                            A(counter, c) = dg_dc(i, j, d, c);
-                        }
-                        b(counter) = target_values(i, j, d);
-                        counter++;
-                    }
-                }
-            }
-            Eigen::VectorXd x = A.fullPivHouseholderQr().solve(b);
-            auto dofs = vector<double>(num_dofs(), 0.);
-            for (int i = 0; i < num_dofs(); ++i) {
-                dofs[i] = x[i];
-            }
-            this->set_dofs(dofs);
+            this->least_squares_fit(target_values);
         }
 
         void invalidate_cache() {
