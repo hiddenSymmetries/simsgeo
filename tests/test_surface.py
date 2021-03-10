@@ -31,13 +31,12 @@ def taylor_test(f, df, x, epsilons=None, direction=None):
         assert counter > 3
     # print("################################################################################")
 
-def get_surface(surfacetype):
+def get_surface(surfacetype, stellsym, phis=None, thetas=None):
     mpol = 4
     ntor = 3
     nfp = 2
-    stellsym = True
-    phis = np.linspace(0, 1, 31, endpoint=False)
-    thetas = np.linspace(0, 1, 31, endpoint=False)
+    phis = phis if phis is not None else np.linspace(0, 1, 31, endpoint=False)
+    thetas = thetas if thetas is not None else np.linspace(0, 1, 31, endpoint=False)
     if surfacetype == "SurfaceRZFourier":
         from simsgeo import SurfaceRZFourier
         s = SurfaceRZFourier(mpol, ntor, nfp, stellsym, phis, thetas)
@@ -78,26 +77,27 @@ class Testing(unittest.TestCase):
             return s.dgamma_by_dcoeff()[1, 1, :, :].copy()
         taylor_test(f, df, coeffs)
 
-        # def f(dofs):
-        #     s.set_dofs(dofs)
-        #     return s.gammadash1()[1, 1, :].copy()
-        # def df(dofs):
-        #     s.set_dofs(dofs)
-        #     return s.dgammadash1_by_dcoeff()[1, 1, :, :].copy()
-        # taylor_test(f, df, coeffs)
+        def f(dofs):
+            s.set_dofs(dofs)
+            return s.gammadash1()[1, 1, :].copy()
+        def df(dofs):
+            s.set_dofs(dofs)
+            return s.dgammadash1_by_dcoeff()[1, 1, :, :].copy()
+        taylor_test(f, df, coeffs)
 
-        # def f(dofs):
-        #     s.set_dofs(dofs)
-        #     return s.gammadash2()[1, 1, :].copy()
-        # def df(dofs):
-        #     s.set_dofs(dofs)
-        #     return s.dgammadash2_by_dcoeff()[1, 1, :, :].copy()
-        # taylor_test(f, df, coeffs)
+        def f(dofs):
+            s.set_dofs(dofs)
+            return s.gammadash2()[1, 1, :].copy()
+        def df(dofs):
+            s.set_dofs(dofs)
+            return s.dgammadash2_by_dcoeff()[1, 1, :, :].copy()
+        taylor_test(f, df, coeffs)
 
     def test_surface_coefficient_derivative(self):
         for surfacetype in self.surfacetypes:
-                with self.subTest(surfacetype=surfacetype):
-                    s = get_surface(surfacetype)
+            for stellsym in [True, False]:
+                with self.subTest(surfacetype=surfacetype, stellsym=stellsym):
+                    s = get_surface(surfacetype, stellsym)
                     self.subtest_surface_coefficient_derivative(s)
 
 
@@ -115,8 +115,9 @@ class Testing(unittest.TestCase):
 
     def test_surface_normal_coefficient_derivative(self):
         for surfacetype in self.surfacetypes:
-                with self.subTest(surfacetype=surfacetype):
-                    s = get_surface(surfacetype)
+            for stellsym in [True, False]:
+                with self.subTest(surfacetype=surfacetype, stellsym=stellsym):
+                    s = get_surface(surfacetype, stellsym)
                     self.subtest_surface_normal_coefficient_derivative(s)
 
     def subtest_surface_area_coefficient_derivative(self, s):
@@ -133,9 +134,52 @@ class Testing(unittest.TestCase):
 
     def test_surface_area_coefficient_derivative(self):
         for surfacetype in self.surfacetypes:
-                with self.subTest(surfacetype=surfacetype):
-                    s = get_surface(surfacetype)
+            for stellsym in [True, False]:
+                with self.subTest(surfacetype=surfacetype, stellsym=stellsym):
+                    s = get_surface(surfacetype, stellsym)
                     self.subtest_surface_area_coefficient_derivative(s)
+
+    def subtest_surface_phi_derivative(self, surfacetype, stellsym):
+        h = 0.1
+        epss = [0.5**i for i in range(10, 15)] 
+        phis = np.asarray([0.6] + [0.6 + eps for eps in epss])
+        s = get_surface(surfacetype, stellsym, phis=phis)
+        f0 = s.gamma()[0, 0, :]
+        deriv = s.gammadash1()[0, 0, :]
+        err_old = 1e6
+        for i in range(len(epss)):
+            fh = s.gamma()[i+1, 0, :]
+            deriv_est = (fh-f0)/epss[i]
+            err = np.linalg.norm(deriv_est-deriv)
+            assert err < 0.55 * err_old
+            err_old = err
+
+    def test_surface_phi_derivative(self):
+        for surfacetype in self.surfacetypes:
+            for stellsym in [True, False]:
+                with self.subTest(surfacetype=surfacetype, stellsym=stellsym):
+                    self.subtest_surface_phi_derivative(surfacetype, stellsym)
+
+    def subtest_surface_theta_derivative(self, surfacetype, stellsym):
+        h = 0.1
+        epss = [0.5**i for i in range(10, 15)] 
+        thetas = np.asarray([0.6] + [0.6 + eps for eps in epss])
+        s = get_surface(surfacetype, stellsym, thetas=thetas)
+        f0 = s.gamma()[0, 0, :]
+        deriv = s.gammadash2()[0, 0, :]
+        err_old = 1e6
+        for i in range(len(epss)):
+            fh = s.gamma()[0, i+1, :]
+            deriv_est = (fh-f0)/epss[i]
+            err = np.linalg.norm(deriv_est-deriv)
+            assert err < 0.55 * err_old
+            err_old = err
+
+    def test_surface_theta_derivative(self):
+        for surfacetype in self.surfacetypes:
+            for stellsym in [True, False]:
+                with self.subTest(surfacetype=surfacetype, stellsym=stellsym):
+                    self.subtest_surface_theta_derivative(surfacetype, stellsym)
 
 if __name__ == "__main__":
     print('wtf')
