@@ -7,3 +7,6 @@ var/
 tests/__pycache__/
 htmlcov/
 .DS_Store
+*.pyc
+.coverage
+*.xml
