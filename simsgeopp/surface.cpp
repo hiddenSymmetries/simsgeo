@@ -20,12 +20,31 @@ using std::logic_error;
 template<class Array>
 class Surface {
     private:
+        /* The cache object contains data that has to be recomputed everytime
+         * the dofs change.  However, some data does not have to be recomputed,
+         * e.g. dgamma_by_dcoeff, since we assume a representation that is
+         * linear in the dofs.  For that data we use the cache_persistent
+         * object */
         map<string, CachedArray<Array>> cache;
+        map<string, CachedArray<Array>> cache_persistent;
+
 
         Array& check_the_cache(string key, vector<int> dims, std::function<void(Array&)> impl){
             auto loc = cache.find(key);
             if(loc == cache.end()){ // Key not found --> allocate array
                 loc = cache.insert(std::make_pair(key, CachedArray<Array>(xt::zeros<double>(dims)))).first; 
+            }
+            if(!((loc->second).status)){ // needs recomputing
+                impl((loc->second).data);
+                (loc->second).status = true;
+            }
+            return (loc->second).data;
+        }
+
+        Array& check_the_persistent_cache(string key, vector<int> dims, std::function<void(Array&)> impl){
+            auto loc = cache_persistent.find(key);
+            if(loc == cache_persistent.end()){ // Key not found --> allocate array
+                loc = cache_persistent.insert(std::make_pair(key, CachedArray<Array>(xt::zeros<double>(dims)))).first; 
             }
             if(!((loc->second).status)){ // needs recomputing
                 impl((loc->second).data);
@@ -90,7 +109,7 @@ class Surface {
             this->set_dofs(dofs);
         }
 
-        void fit_to_curve(Curve<Array>& curve, double radius) {
+        void fit_to_curve(Curve<Array>& curve, double radius, bool flip_theta) {
             Array curvexyz = xt::zeros<double>({numquadpoints_phi, 3});
             curve.gamma_impl(curvexyz, quadpoints_phi);
             Array target_values = xt::zeros<double>({numquadpoints_phi, numquadpoints_theta, 3});
@@ -100,6 +119,8 @@ class Surface {
                 double z = curvexyz(i, 2);
                 for (int j = 0; j < numquadpoints_theta; ++j) {
                     double theta = 2*M_PI*quadpoints_theta[j];
+                    if(flip_theta)
+                        theta *= -1;
                     target_values(i, j, 0) = (R + radius * cos(theta))*cos(phi);
                     target_values(i, j, 1) = (R + radius * cos(theta))*sin(phi);
                     target_values(i, j, 2) = z + radius * sin(theta);
@@ -224,13 +245,13 @@ class Surface {
             return check_the_cache("gammadash2", {numquadpoints_phi, numquadpoints_theta,3}, [this](Array& A) { return gammadash2_impl(A);});
         }
         Array& dgamma_by_dcoeff() {
-            return check_the_cache("dgamma_by_dcoeff", {numquadpoints_phi, numquadpoints_theta,3,num_dofs()}, [this](Array& A) { return dgamma_by_dcoeff_impl(A);});
+            return check_the_persistent_cache("dgamma_by_dcoeff", {numquadpoints_phi, numquadpoints_theta,3,num_dofs()}, [this](Array& A) { return dgamma_by_dcoeff_impl(A);});
         }
         Array& dgammadash1_by_dcoeff() {
-            return check_the_cache("dgammadash1_by_dcoeff", {numquadpoints_phi, numquadpoints_theta,3,num_dofs()}, [this](Array& A) { return dgammadash1_by_dcoeff_impl(A);});
+            return check_the_persistent_cache("dgammadash1_by_dcoeff", {numquadpoints_phi, numquadpoints_theta,3,num_dofs()}, [this](Array& A) { return dgammadash1_by_dcoeff_impl(A);});
         }
         Array& dgammadash2_by_dcoeff() {
-            return check_the_cache("dgammadash2_by_dcoeff", {numquadpoints_phi, numquadpoints_theta,3,num_dofs()}, [this](Array& A) { return dgammadash2_by_dcoeff_impl(A);});
+            return check_the_persistent_cache("dgammadash2_by_dcoeff", {numquadpoints_phi, numquadpoints_theta,3,num_dofs()}, [this](Array& A) { return dgammadash2_by_dcoeff_impl(A);});
         }
         Array& normal() {
             return check_the_cache("normal", {numquadpoints_phi, numquadpoints_theta,3}, [this](Array& A) { return normal_impl(A);});

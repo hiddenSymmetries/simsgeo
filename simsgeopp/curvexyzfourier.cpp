@@ -4,6 +4,18 @@
 
 template<class Array>
 class CurveXYZFourier : public Curve<Array> {
+    /*
+       CurveXYZFourier is a curve that is represented in cartesian
+       coordinates using the following Fourier series: 
+
+       x(phi) = \sum_{m=0}^{order} x_{c,m}cos(phi) + \sum_{m=1}^order x_{s,m}sin(phi)
+       y(phi) = \sum_{m=0}^{order} y_{c,m}cos(phi) + \sum_{m=1}^order y_{s,m}sin(phi)
+       z(phi) = \sum_{m=0}^{order} z_{c,m}cos(phi) + \sum_{m=1}^order z_{s,m}sin(phi)
+
+       The dofs are stored in the order 
+       [x_{c,0},...,x_{c,order},x_{s,1},...,x_{s,order},y_{c,0},....]
+
+       */
     private:
         int order;
     public:

@@ -32,12 +32,31 @@ Array curve_vjp_contraction(const Array& mat, const Array& v){
 template<class Array>
 class Curve {
     private:
+        /* The cache object contains data that has to be recomputed everytime
+         * the dofs change.  However, some data does not have to be recomputed,
+         * e.g. dgamma_by_dcoeff, since we assume a representation that is
+         * linear in the dofs.  For that data we use the cache_persistent
+         * object */
         map<string, CachedArray<Array>> cache;
+        map<string, CachedArray<Array>> cache_persistent;
+
 
         Array& check_the_cache(string key, vector<int> dims, std::function<void(Array&)> impl){
             auto loc = cache.find(key);
             if(loc == cache.end()){ // Key not found --> allocate array
                 loc = cache.insert(std::make_pair(key, CachedArray<Array>(xt::zeros<double>(dims)))).first; 
+            }
+            if(!((loc->second).status)){ // needs recomputing
+                impl((loc->second).data);
+                (loc->second).status = true;
+            }
+            return (loc->second).data;
+        }
+
+        Array& check_the_persistent_cache(string key, vector<int> dims, std::function<void(Array&)> impl){
+            auto loc = cache_persistent.find(key);
+            if(loc == cache_persistent.end()){ // Key not found --> allocate array
+                loc = cache_persistent.insert(std::make_pair(key, CachedArray<Array>(xt::zeros<double>(dims)))).first; 
             }
             if(!((loc->second).status)){ // needs recomputing
                 impl((loc->second).data);
@@ -140,16 +159,16 @@ class Curve {
         }
 
         Array& dgamma_by_dcoeff() {
-            return check_the_cache("dgamma_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgamma_by_dcoeff_impl(A);});
+            return check_the_persistent_cache("dgamma_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgamma_by_dcoeff_impl(A);});
         }
         Array& dgammadash_by_dcoeff() {
-            return check_the_cache("dgammadash_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgammadash_by_dcoeff_impl(A);});
+            return check_the_persistent_cache("dgammadash_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgammadash_by_dcoeff_impl(A);});
         }
         Array& dgammadashdash_by_dcoeff() {
-            return check_the_cache("dgammadashdash_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgammadashdash_by_dcoeff_impl(A);});
+            return check_the_persistent_cache("dgammadashdash_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgammadashdash_by_dcoeff_impl(A);});
         }
         Array& dgammadashdashdash_by_dcoeff() {
-            return check_the_cache("dgammadashdashdash_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgammadashdashdash_by_dcoeff_impl(A);});
+            return check_the_persistent_cache("dgammadashdashdash_by_dcoeff", {numquadpoints, 3, num_dofs()}, [this](Array& A) { return dgammadashdashdash_by_dcoeff_impl(A);});
         }
 
         virtual Array dgamma_by_dcoeff_vjp(Array& v) {

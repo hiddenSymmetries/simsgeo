@@ -130,7 +130,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("dsurface_area_by_dcoeff", &PySurface::dsurface_area_by_dcoeff)
         .def("invalidate_cache", &PySurface::invalidate_cache)
         .def("set_dofs", &PySurface::set_dofs)
-        .def("fit_to_curve", &PySurface::fit_to_curve)
+        .def("fit_to_curve", &PySurface::fit_to_curve, py::arg("curve"), py::arg("radius"), py::arg("flip_theta") = false)
         .def("scale_surface", &PySurface::scale_surface)
         .def_readonly("quadpoints_phi", &PySurface::quadpoints_phi)
         .def_readonly("quadpoints_theta", &PySurface::quadpoints_theta);
@@ -154,7 +154,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("dnormal_by_dcoeff", &PySurfaceRZFourier::dnormal_by_dcoeff)
         .def("surface_area", &PySurfaceRZFourier::surface_area)
         .def("dsurface_area_by_dcoeff", &PySurfaceRZFourier::dsurface_area_by_dcoeff)
-        .def("fit_to_curve", &PySurfaceRZFourier::fit_to_curve)
+        .def("fit_to_curve", &PySurfaceRZFourier::fit_to_curve, py::arg("curve"), py::arg("radius"), py::arg("flip_theta") = false)
         .def("scale_surface", &PySurfaceRZFourier::scale_surface);
 
 
@@ -179,7 +179,7 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("dnormal_by_dcoeff", &PySurfaceXYZFourier::dnormal_by_dcoeff)
         .def("surface_area", &PySurfaceXYZFourier::surface_area)
         .def("dsurface_area_by_dcoeff", &PySurfaceXYZFourier::dsurface_area_by_dcoeff)
-        .def("fit_to_curve", &PySurfaceXYZFourier::fit_to_curve)
+        .def("fit_to_curve", &PySurfaceXYZFourier::fit_to_curve, py::arg("curve"), py::arg("radius"), py::arg("flip_theta") = false)
         .def("scale_surface", &PySurfaceXYZFourier::scale_surface);
 
 
