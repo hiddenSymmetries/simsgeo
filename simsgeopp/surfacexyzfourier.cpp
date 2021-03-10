@@ -127,10 +127,14 @@ class SurfaceXYZFourier : public Surface<Array> {
                     for (int m = 0; m < mpol; ++m) {
                         for (int i = 0; i < 2*ntor+1; ++i) {
                             int n  = i - ntor;
-                            for (int d = 0; d < 3; ++d) {
-                                data(k1, k2, d) += get_coeff(d, true , m, i) * cos(m*theta-n*nfp*phi);
-                                data(k1, k2, d) += get_coeff(d, false, m, i) * sin(m*theta-n*nfp*phi);
-                            }
+                            double xhat = get_coeff(0, true, m, i) * cos(m*theta-n*nfp*phi) + get_coeff(0, false, m, i) * sin(m*theta-n*nfp*phi);
+                            double yhat = get_coeff(1, true, m, i) * cos(m*theta-n*nfp*phi) + get_coeff(1, false, m, i) * sin(m*theta-n*nfp*phi);
+                            double x = xhat * cos(phi) - yhat * sin(phi);
+                            double y = xhat * sin(phi) + yhat * cos(phi);
+                            double z = get_coeff(2, true , m, i) * cos(m*theta-n*nfp*phi) + get_coeff(2, false, m, i) * sin(m*theta-n*nfp*phi);
+                            data(k1, k2, 0) += x;
+                            data(k1, k2, 1) += y;
+                            data(k1, k2, 2) += z;
                         }
                     }
                 }
@@ -155,6 +159,7 @@ class SurfaceXYZFourier : public Surface<Array> {
                 }
             }
         }
+
         void gammadash2_impl(Array& data) override {
             data *= 0.;
             for (int k1 = 0; k1 < numquadpoints_phi; ++k1) {
@@ -184,13 +189,33 @@ class SurfaceXYZFourier : public Surface<Array> {
                         for (int m = 0; m < mpol; ++m) {
                             for (int n = -ntor; n <= ntor; ++n) {
                                 if(m==0 && n<0) continue;
-                                data(k1, k2, d, counter++) = cos(m*theta-n*nfp*phi);
+                                if(d == 0) {
+                                    data(k1, k2, 0, counter) = cos(m*theta-n*nfp*phi) * cos(phi);
+                                    data(k1, k2, 1, counter) = cos(m*theta-n*nfp*phi) * sin(phi);
+                                }else if(d == 1) {
+                                    data(k1, k2, 0, counter) = -cos(m*theta-n*nfp*phi) * sin(phi);
+                                    data(k1, k2, 1, counter) =  cos(m*theta-n*nfp*phi) * cos(phi);
+                                }
+                                else {
+                                    data(k1, k2, 2, counter) =  cos(m*theta-n*nfp*phi);
+                                }
+                                counter++;
                             }
                         }
                         for (int m = 0; m < mpol; ++m) {
                             for (int n = -ntor; n <= ntor; ++n) {
                                 if(m==0 && n<=0) continue;
-                                data(k1, k2, d, counter++) = sin(m*theta-n*nfp*phi);
+                                if(d == 0) {
+                                    data(k1, k2, 0, counter) = sin(m*theta-n*nfp*phi) * cos(phi);
+                                    data(k1, k2, 1, counter) = sin(m*theta-n*nfp*phi) * sin(phi);
+                                }else if(d == 1) {
+                                    data(k1, k2, 0, counter) = -sin(m*theta-n*nfp*phi) * sin(phi);
+                                    data(k1, k2, 1, counter) =  sin(m*theta-n*nfp*phi) * cos(phi);
+                                }
+                                else {
+                                    data(k1, k2, 2, counter) =  sin(m*theta-n*nfp*phi);
+                                }
+                                counter++;
                             }
                         }
                     }
