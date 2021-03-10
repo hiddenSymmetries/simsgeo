@@ -102,7 +102,7 @@ class Surface {
                     double theta = 2*M_PI*quadpoints_theta[j];
                     target_values(i, j, 0) = (R + radius * cos(theta))*cos(phi);
                     target_values(i, j, 1) = (R + radius * cos(theta))*sin(phi);
-                    target_values(i, j, 2) = radius * sin(theta);
+                    target_values(i, j, 2) = z + radius * sin(theta);
                 }
             }
             this->least_squares_fit(target_values);
