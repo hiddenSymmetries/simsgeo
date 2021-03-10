@@ -53,6 +53,8 @@ class Surface {
             return (loc->second).data;
         }
 
+        std::unique_ptr<Eigen::FullPivHouseholderQR<Eigen::MatrixXd>> qr; //QR factorisation of dgamma_by_dcoeff, for least squares fitting.
+
     // We'd really like these to be protected, but I'm not sure that plays well
     // with accessing them from python child classes. 
     public://protected:
@@ -86,26 +88,33 @@ class Surface {
             if(target_values.shape(2) != 3)
                 throw std::runtime_error("Wrong third dimension for target_values. Should be 3.");
 
-            auto dg_dc = this->dgamma_by_dcoeff();
-            Eigen::MatrixXd A = Eigen::MatrixXd(numquadpoints_phi*numquadpoints_theta*3, num_dofs());
+            if(!qr){
+                auto dg_dc = this->dgamma_by_dcoeff();
+                Eigen::MatrixXd A = Eigen::MatrixXd(numquadpoints_phi*numquadpoints_theta*3, num_dofs());
+                int counter = 0;
+                for (int i = 0; i < numquadpoints_phi; ++i) {
+                    for (int j = 0; j < numquadpoints_theta; ++j) {
+                        for (int d = 0; d < 3; ++d) {
+                            for (int c = 0; c  < num_dofs(); ++c ) {
+                                A(counter, c) = dg_dc(i, j, d, c);
+                            }
+                            counter++;
+                        }
+                    }
+                }
+                qr = std::make_unique<Eigen::FullPivHouseholderQR<Eigen::MatrixXd>>(A.fullPivHouseholderQr());
+            }
             Eigen::VectorXd b = Eigen::VectorXd(numquadpoints_phi*numquadpoints_theta*3);
             int counter = 0;
             for (int i = 0; i < numquadpoints_phi; ++i) {
                 for (int j = 0; j < numquadpoints_theta; ++j) {
                     for (int d = 0; d < 3; ++d) {
-                        for (int c = 0; c  < num_dofs(); ++c ) {
-                            A(counter, c) = dg_dc(i, j, d, c);
-                        }
-                        b(counter) = target_values(i, j, d);
-                        counter++;
+                        b(counter++) = target_values(i, j, d);
                     }
                 }
             }
-            Eigen::VectorXd x = A.fullPivHouseholderQr().solve(b);
-            auto dofs = vector<double>(num_dofs(), 0.);
-            for (int i = 0; i < num_dofs(); ++i) {
-                dofs[i] = x[i];
-            }
+            Eigen::VectorXd x = qr->solve(b);
+            vector<double> dofs(x.data(), x.data() + x.size());
             this->set_dofs(dofs);
         }
 
@@ -129,7 +138,7 @@ class Surface {
             this->least_squares_fit(target_values);
         }
 
-        void scale_surface(double scale) {
+        void scale(double scale) {
             Array target_values = xt::zeros<double>({numquadpoints_phi, numquadpoints_theta, 3});
             auto gamma = this->gamma();
             for (int i = 0; i < numquadpoints_phi; ++i) {
@@ -149,6 +158,21 @@ class Surface {
                     target_values(i, j, 0) = meanx + scale * (gamma(i, j, 0) - meanx);
                     target_values(i, j, 1) = meany + scale * (gamma(i, j, 1) - meany);
                     target_values(i, j, 2) = meanz + scale * (gamma(i, j, 2) - meanz);
+                }
+            }
+            this->least_squares_fit(target_values);
+        }
+
+        void extend_via_normal(double scale) {
+            Array target_values = xt::zeros<double>({numquadpoints_phi, numquadpoints_theta, 3});
+            auto gamma = this->gamma();
+            auto n = this->normal();
+            for (int i = 0; i < numquadpoints_phi; ++i) {
+                for (int j = 0; j < numquadpoints_theta; ++j) {
+                    auto nij_norm = sqrt(n(i, j, 0)*n(i, j, 0) + n(i, j, 1)*n(i, j, 1) + n(i, j, 2)*n(i, j, 2));
+                    target_values(i, j, 0) = gamma(i, j, 0) + scale * n(i, j, 0) / nij_norm;
+                    target_values(i, j, 1) = gamma(i, j, 1) + scale * n(i, j, 1) / nij_norm;
+                    target_values(i, j, 2) = gamma(i, j, 2) + scale * n(i, j, 2) / nij_norm;
                 }
             }
             this->least_squares_fit(target_values);

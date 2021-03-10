@@ -131,7 +131,8 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("invalidate_cache", &PySurface::invalidate_cache)
         .def("set_dofs", &PySurface::set_dofs)
         .def("fit_to_curve", &PySurface::fit_to_curve, py::arg("curve"), py::arg("radius"), py::arg("flip_theta") = false)
-        .def("scale_surface", &PySurface::scale_surface)
+        .def("scale", &PySurface::scale)
+        .def("extend_via_normal", &PySurface::extend_via_normal)
         .def_readonly("quadpoints_phi", &PySurface::quadpoints_phi)
         .def_readonly("quadpoints_theta", &PySurface::quadpoints_theta);
 
@@ -155,7 +156,8 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("surface_area", &PySurfaceRZFourier::surface_area)
         .def("dsurface_area_by_dcoeff", &PySurfaceRZFourier::dsurface_area_by_dcoeff)
         .def("fit_to_curve", &PySurfaceRZFourier::fit_to_curve, py::arg("curve"), py::arg("radius"), py::arg("flip_theta") = false)
-        .def("scale_surface", &PySurfaceRZFourier::scale_surface);
+        .def("scale", &PySurfaceRZFourier::scale)
+        .def("extend_via_normal", &PySurfaceRZFourier::extend_via_normal);
 
 
     py::class_<PySurfaceXYZFourier, std::shared_ptr<PySurfaceXYZFourier>, PySurfaceXYZFourierTrampoline<PySurfaceXYZFourier>>(m, "SurfaceXYZFourier")
@@ -180,7 +182,8 @@ PYBIND11_MODULE(simsgeopp, m) {
         .def("surface_area", &PySurfaceXYZFourier::surface_area)
         .def("dsurface_area_by_dcoeff", &PySurfaceXYZFourier::dsurface_area_by_dcoeff)
         .def("fit_to_curve", &PySurfaceXYZFourier::fit_to_curve, py::arg("curve"), py::arg("radius"), py::arg("flip_theta") = false)
-        .def("scale_surface", &PySurfaceXYZFourier::scale_surface);
+        .def("scale", &PySurfaceXYZFourier::scale)
+        .def("extend_via_normal", &PySurfaceXYZFourier::extend_via_normal);
 
 
     py::class_<PyCurve, std::shared_ptr<PyCurve>, PyCurveTrampoline<PyCurve>>(m, "Curve")
