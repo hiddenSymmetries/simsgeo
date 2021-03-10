@@ -1,9 +1,11 @@
 import numpy as np
 import unittest
-from simsgeo import FourierCurve, StelleratorSymmetricCylindricalFourierCurve, BiotSavart
+from simsgeo import CurveXYZFourier, CurveRZFourier, BiotSavart
+import ipdb
+
 
 def get_coil(num_quadrature_points=200):
-    coil = FourierCurve(num_quadrature_points, 3)
+    coil = CurveXYZFourier(num_quadrature_points, 3)
     coeffs = coil.dofs
     coeffs[1][0] = 1.
     coeffs[1][1] = 0.5
@@ -177,6 +179,73 @@ class Testing(unittest.TestCase):
         for idx in [0, 16]:
             with self.subTest(idx=idx):
                 self.subtest_biotsavart_d2B_by_dXdX_taylortest(idx)
+    def test_biotsavart_B_is_curlA(self):
+        coil = get_coil()
+        bs = BiotSavart([coil], [1e4])
+        points = np.asarray(17 *[[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+        bs.set_points(points)
+        B, dA_by_dX = bs.B(), bs.dA_by_dX() 
+        curlA1 = dA_by_dX[:,1,2] - dA_by_dX[:,2,1]
+        curlA2 = dA_by_dX[:,2,0] - dA_by_dX[:,0,2]
+        curlA3 = dA_by_dX[:,0,1] - dA_by_dX[:,1,0]
+        curlA = np.concatenate( (curlA1[:,None], curlA2[:,None], curlA3[:,None]) , axis = 1)
+        err = np.max(np.abs( curlA - B) )
+        assert err < 1e-14
+    def subtest_biotsavart_dAdX_taylortest(self, idx):
+        coil = get_coil()
+        bs = BiotSavart([coil], [1e4])
+        points = np.asarray(17 * [[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+        points += 0.001 * (np.random.rand(*points.shape)-0.5)
+        bs.set_points(points)
+        A0 = bs.A()[idx]
+        dA = bs.dA_by_dX()[idx]
+
+        for direction in [np.asarray((1., 0, 0)), np.asarray((0, 1., 0)), np.asarray((0, 0, 1.))]:
+            deriv = dA.T.dot(direction)
+            err = 1e6
+            for i in range(5, 10):
+                eps = 0.5**i
+                bs.set_points(points + eps * direction)
+                Aeps = bs.A()[idx]
+                deriv_est = (Aeps-A0)/(eps)
+                new_err = np.linalg.norm(deriv-deriv_est)
+                assert new_err < 0.55 * err
+                err = new_err
+    def test_biotsavart_dAdX_taylortest(self):
+        for idx in [0, 16]:
+            with self.subTest(idx=idx):
+                self.subtest_biotsavart_dAdX_taylortest(idx)
+
+    def subtest_biotsavart_d2A_by_dXdX_taylortest(self, idx):
+        coil = get_coil()
+        bs = BiotSavart([coil], [1e4])
+        points = np.asarray(17 *[[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
+        bs.set_points(points)
+        A0, dA_by_dX, d2A_by_dXdX = bs.A(), bs.dA_by_dX(), bs.d2A_by_dXdX()
+        for direction in [np.asarray((1., 0, 0)), np.asarray((0, 1., 0)), np.asarray((0, 0, 1.))]:
+            first_deriv = dA_by_dX[idx].T.dot(direction)
+            second_deriv = np.einsum('ijk,i,j->k', d2A_by_dXdX[idx], direction, direction)
+            err = 1e6
+            for i in range(5, 10):
+                eps = 0.5**i
+                bs.set_points(points + eps * direction)
+                Aeps = bs.A()[idx]
+                deriv_est = (Aeps-A0)/(eps)
+                second_deriv_est = 2*(deriv_est - first_deriv)/eps
+                new_err = np.linalg.norm(second_deriv-second_deriv_est)
+                assert new_err < 0.55 * err
+                err = new_err
+
+    def test_biotsavart_d2A_by_dXdX_taylortest(self):
+        for idx in [0, 16]:
+            with self.subTest(idx=idx):
+                self.subtest_biotsavart_d2A_by_dXdX_taylortest(idx)
+
+
+
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
