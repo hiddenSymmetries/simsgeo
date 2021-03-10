@@ -57,6 +57,13 @@ class Curve():
             plt.show()
         return ax
 
+    def plot_mayavi(self, show=True):
+        from mayavi import mlab
+        g = self.gamma()
+        mlab.plot3d(g[:, 0], g[:, 1], g[:, 2])
+        if show:
+            mlab.show()
+
     def dincremental_arclength_by_dcoeff_vjp(self, v):
         return self.dgammadash_by_dcoeff_vjp(incremental_arclength_vjp(self.gammadash(), v))
 
