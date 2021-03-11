@@ -160,20 +160,28 @@ class Testing(unittest.TestCase):
         bs = BiotSavart([coil], [1e4])
         points = np.asarray(17 *[[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
         bs.set_points(points)
-        B0, dB_by_dX, d2B_by_dXdX = bs.B(), bs.dB_by_dX(), bs.d2B_by_dXdX()
-        for direction in [np.asarray((1., 0, 0)), np.asarray((0, 1., 0)), np.asarray((0, 0, 1.))]:
-            first_deriv = dB_by_dX[idx].T.dot(direction)
-            second_deriv = np.einsum('ijk,i,j->k', d2B_by_dXdX[idx], direction, direction)
-            err = 1e6
-            for i in range(5, 10):
-                eps = 0.5**i
-                bs.set_points(points + eps * direction)
-                Beps = bs.B()[idx]
-                deriv_est = (Beps-B0)/(eps)
-                second_deriv_est = 2*(deriv_est - first_deriv)/eps
-                new_err = np.linalg.norm(second_deriv-second_deriv_est)
-                assert new_err < 0.55 * err
-                err = new_err
+        dB_by_dX, d2B_by_dXdX = bs.dB_by_dX(), bs.d2B_by_dXdX()
+        for d1 in range(3):
+            for d2 in range(3):
+                second_deriv = d2B_by_dXdX[idx,d1,d2]
+                err = 1e6
+                for i in range(5, 10):
+                    eps = 0.5**i
+                    
+                    ed2 = np.zeros( (1,3) )
+                    ed2[0,d2] = 1.
+                    
+                    bs.set_points(points + eps * ed2)
+                    dB_dXp = bs.dB_by_dX()[idx,d1]
+                    
+                    bs.set_points(points - eps * ed2)
+                    dB_dXm = bs.dB_by_dX()[idx,d1]
+                    
+                    second_deriv_est = (dB_dXp - dB_dXm)/(2. * eps)
+
+                    new_err = np.linalg.norm(second_deriv-second_deriv_est)
+                    assert new_err < 0.30 * err
+                    err = new_err
 
     def test_biotsavart_d2B_by_dXdX_taylortest(self):
         for idx in [0, 16]:
@@ -199,6 +207,7 @@ class Testing(unittest.TestCase):
         bs.set_points(points)
         A0 = bs.A()[idx]
         dA = bs.dA_by_dX()[idx]
+        
 
         for direction in [np.asarray((1., 0, 0)), np.asarray((0, 1., 0)), np.asarray((0, 0, 1.))]:
             deriv = dA.T.dot(direction)
@@ -221,21 +230,28 @@ class Testing(unittest.TestCase):
         bs = BiotSavart([coil], [1e4])
         points = np.asarray(17 *[[-1.41513202e-03,  8.99999382e-01, -3.14473221e-04 ]])
         bs.set_points(points)
-        A0, dA_by_dX, d2A_by_dXdX = bs.A(), bs.dA_by_dX(), bs.d2A_by_dXdX()
-        for direction in [np.asarray((1., 0, 0)), np.asarray((0, 1., 0)), np.asarray((0, 0, 1.))]:
-            first_deriv = dA_by_dX[idx].T.dot(direction)
-            second_deriv = np.einsum('ijk,i,j->k', d2A_by_dXdX[idx], direction, direction)
-            err = 1e6
-            for i in range(5, 10):
-                eps = 0.5**i
-                bs.set_points(points + eps * direction)
-                Aeps = bs.A()[idx]
-                deriv_est = (Aeps-A0)/(eps)
-                second_deriv_est = 2*(deriv_est - first_deriv)/eps
-                new_err = np.linalg.norm(second_deriv-second_deriv_est)
-                assert new_err < 0.55 * err
-                err = new_err
+        dA_by_dX, d2A_by_dXdX = bs.dA_by_dX(), bs.d2A_by_dXdX()
+        for d1 in range(3):
+            for d2 in range(3):
+                second_deriv = d2A_by_dXdX[idx,d1,d2]
+                err = 1e6
+                for i in range(5, 10):
+                    eps = 0.5**i
+                    
+                    ed2 = np.zeros( (1,3) )
+                    ed2[0,d2] = 1.
+                    
+                    bs.set_points(points + eps * ed2)
+                    dA_dXp = bs.dA_by_dX()[idx,d1]
+                    
+                    bs.set_points(points - eps * ed2)
+                    dA_dXm = bs.dA_by_dX()[idx,d1]
+                    
+                    second_deriv_est = (dA_dXp - dA_dXm)/(2. * eps)
 
+                    new_err = np.linalg.norm(second_deriv-second_deriv_est)
+                    assert new_err < 0.30 * err
+                    err = new_err
     def test_biotsavart_d2A_by_dXdX_taylortest(self):
         for idx in [0, 16]:
             with self.subTest(idx=idx):
