@@ -1,6 +1,7 @@
 from simsgeo import CurveXYZFourier, RotatedCurve, BiotSavart, boozer_surface_residual, SurfaceRZFourier, CurveRZFourier
 import numpy as np
 from math import pi
+import ipdb
 
 class CoilCollection():
     """
@@ -64,6 +65,7 @@ def get_ncsx_data(Nt_coils=25, Nt_ma=10, ppp=10):
     return (coils, currents, ma)
 
 
+
 coils, currents, ma = get_ncsx_data()
 stellarator = CoilCollection(coils, currents, 3, True)
 bs = BiotSavart(stellarator.coils, stellarator.currents)
@@ -109,18 +111,19 @@ eps = 1e-4
 h = np.random.uniform(size=dofs.shape)
 r0, J0, Jiota = boozer_surface_residual(s, iota, bs)
 print(f"J0.shape={J0.shape}, Rank(J0)={np.linalg.matrix_rank(J0)}")
+
 # J = np.delete(J0, 2*J0.shape[1]//3, 1)
 # J = np.concatenate((J, Jiota), axis=1)
 # print("Rank(J)", np.linalg.matrix_rank(J))
 
-print("Taylor test the residual")
-Jex = J0@h
-for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
-    s.set_dofs(dofs + eps*h)
-    r1, J1, _ = boozer_surface_residual(s, iota, bs)
-    Jfd = (r1-r0)/eps
-    print(np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex))
-
+#print("Taylor test the residual")
+#Jex = J0@h
+#for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
+#    s.set_dofs(dofs + eps*h)
+#    r1, J1, _ = boozer_surface_residual(s, iota, bs)
+#    Jfd = (r1-r0)/eps
+#    print(np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex))
+#
 s.set_dofs(dofs)
 x = np.concatenate((s.get_dofs(), [iota]))
 area0 = s.surface_area()
@@ -138,34 +141,14 @@ def f(x):
     print(val, np.linalg.norm(dval))
     return val, dval
 
-print('Taylor rest 0.5 * residual^2')
-f0, J0 = f(x)
-h = np.random.uniform(size=x.shape)
-Jex = J0@h
-for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
-    f1, J1 = f(x + eps*h)
-    Jfd = (f1-f0)/eps
-    print(np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex))
-
-
-# def g(x):
-#     return , 
-
 s.set_dofs(x[:-1])
 xyz0 = s.gamma()
 bs.set_points(xyz0.reshape((nphi*ntheta, 3)))
 absB0 = np.linalg.norm(bs.B(), axis=1).reshape((nphi, ntheta))
 s.plot(scalars=absB0)
 
-# v, dv = f(x)
-# for i in range(1000):
-#     x -= 1e-4 * dv
-#     v, dv = f(x)
-#     print(i, v, np.linalg.norm(dv))
-
-# c, dc = g(x)
 from scipy.optimize import minimize
-res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 100})
+res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 1000})
 
 s.set_dofs(res.x[:-1])
 xyz = s.gamma()
@@ -174,12 +157,28 @@ absB = np.linalg.norm(bs.B(), axis=1).reshape((nphi, ntheta))
 s.plot(scalars=absB)
 
 
-import matplotlib.pyplot as plt
-for i in range(ntheta):
-    plt.plot(phis, absB[:,i])
-    plt.plot(phis, absB0[:,i], ':')
-plt.show()
+tflux = ToroidalFlux(s, bs)
+print(tflux.J())
+print(tflux.dJ_by_dsurfacecoefficients())
+
+#for i in range(10):
+#    s.scale_surface(1.1)
+#    area0 = s.surface_area()
+#    res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 1000})
+#    s.plot(scalars=absB)
 
 
-import IPython; IPython.embed()
-import sys; sys.exit()
+#print('Taylor rest 0.5 * residual^2')
+#f0, J0 = f(x)
+#h = np.random.uniform(size=x.shape)
+#Jex = J0@h
+#for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
+#    f1, J1 = f(x + eps*h)
+#    Jfd = (f1-f0)/eps
+#    print(np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex))
+
+
+# def g(x):
+#     return , 
+
+
