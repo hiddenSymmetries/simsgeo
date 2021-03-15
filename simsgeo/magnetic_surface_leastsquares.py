@@ -1,11 +1,11 @@
 import numpy as np
 import ipdb
-def boozer_surface_residual(surface, iota, biotsavart):
+def boozer_surface_residual(surface, iota, biotsavart, derivatives = 1):
     """
     For a given surface with points x on it, this function computes the
     residual
 
-        B_BS(x) - (||B_BS(x)||^2/G) * (x_phi - iota * x_theta)
+        B_BS(x) - (||B_BS(x)||^2/G) * (x_phi + iota * x_theta)
 
     as well as the derivatives of this residual with respect to surface dofs
     and iota.
@@ -29,6 +29,9 @@ def boozer_surface_residual(surface, iota, biotsavart):
     # G = np.sum(np.abs(biotsavart.coil_currents))
     G = 2. * np.pi * np.sum(np.abs(biotsavart.coil_currents)) * (4 * np.pi * 10**(-7) / (2 * np.pi))
     residual = B - (np.sum(B**2, axis=2)/G)[..., None] * tang
+    if derivatives == 0:
+        return residual_flattened
+
 
     dx_dc = surface.dgamma_by_dcoeff()
     dxphi_dc = surface.dgammadash1_by_dcoeff()
@@ -40,7 +43,16 @@ def boozer_surface_residual(surface, iota, biotsavart):
         - (2/G) * np.sum(B[..., None]*dB_dc, axis=2)[:, :, None, :] * tang[..., None] \
         - (np.sum(B**2, axis=2)/G)[..., None, None] * (dxphi_dc + iota * dxtheta_dc)
     dresidual_diota = -(np.sum(B**2, axis=2)/G)[..., None] * xtheta
-   
+
+    residual_flattened = residual.reshape((nphi*ntheta*3, ))
+    dresidual_dc_flattened = dresidual_dc.reshape((nphi*ntheta*3, dresidual_dc.shape[-1]))
+    dresidual_diota_flattened = dresidual_diota.reshape((nphi*ntheta*3, 1))
+    if derivatives == 1:
+        return residual_flattened, dresidual_dc_flattened, dresidual_diota_flattened
+
+
+
+
     B2 = np.sum( B**2, axis = -1)
     d2B_dcdc = np.einsum('ijkpl,ijpn,ijkm->ijlmn', d2B_by_dXdX, dx_dc, dx_dc)
     dB2_dc = 2.* np.einsum('ijl,ijlm->ijm', B, dB_dc)
@@ -48,17 +60,15 @@ def boozer_surface_residual(surface, iota, biotsavart):
     term1 = np.einsum('ijlm,ijln->ijmn',dB_dc, dB_dc)
     term2 = np.einsum('ijlmn,ijl->ijmn',d2B_dcdc,B)
     d2B2_dcdc = 2*(term1 + term2) 
+    
 
-    term1 = -(1/G) * ( dxphi_dc[...,None,:] - iota * dxtheta_dc[...,None,:] ) * dB2_dc[...,None,:,None]
-    term2 = -(1/G) * ( dxphi_dc[...,:,None] - iota * dxtheta_dc[...,:,None] ) * dB2_dc[...,None,None,:]
-    term3 = -(1/G) * (  xphi[...,None,None] - iota * xtheta[...,None,None]  ) * d2B2_dcdc[...,None,:,:]
+    term1 = -(1/G) * ( dxphi_dc[...,None,:] + iota * dxtheta_dc[...,None,:] ) * dB2_dc[...,None,:,None]
+    term2 = -(1/G) * ( dxphi_dc[...,:,None] + iota * dxtheta_dc[...,:,None] ) * dB2_dc[...,None,None,:]
+    term3 = -(1/G) * (  xphi[...,None,None] + iota * xtheta[...,None,None]  ) * d2B2_dcdc[...,None,:,:]
     d2residual_by_dcdc = d2B_dcdc + term1 + term2 + term3
-    d2residual_by_dcdiota = (1/G)*(dB2_dc[...,None,:] * xtheta[...,:,None] + B2[...,None,None] * dxtheta_dc)
+    d2residual_by_dcdiota = -(1/G)*(dB2_dc[...,None,:] * xtheta[...,:,None] + B2[...,None,None] * dxtheta_dc)
     d2residual_by_diotadiota = np.zeros( dresidual_diota.shape )
 
-    residual_flattened = residual.reshape((nphi*ntheta*3, ))
-    dresidual_dc_flattened = dresidual_dc.reshape((nphi*ntheta*3, dresidual_dc.shape[-1]))
-    dresidual_diota_flattened = dresidual_diota.reshape((nphi*ntheta*3, 1))
     d2residual_by_dcdc_flattened = d2residual_by_dcdc.reshape( (nphi*ntheta*3,dresidual_dc.shape[-1], dresidual_dc.shape[-1]))
     d2residual_by_dcdiota_flattened = d2residual_by_dcdiota.reshape( (nphi*ntheta*3,dresidual_dc.shape[-1]) )
     d2residual_by_diotadiota_flattened = d2residual_by_diotadiota.reshape( (nphi*ntheta*3,1))
@@ -85,15 +95,16 @@ class ToroidalFlux(object):
         self.surface = surface
         self.biotsavart = biotsavart
         self.idx = 0 # varphi = 0 here
-
-    def J(self):
+    
+    def invalidate_cache(self):
         x = self.surface.gamma()[self.idx]
+        self.biotsavart.set_points(x)
+        
+    def J(self):
         xtheta = self.surface.gammadash2()[self.idx]
         ntheta = self.surface.gamma().shape[1]
     
-        self.biotsavart.set_points(x)
         A = self.biotsavart.A()
-
         tf = np.sum(A * xtheta)/ntheta
         return tf
 
@@ -103,9 +114,6 @@ class ToroidalFlux(object):
         Calculate the derivatives with respect to the surface coefficients
         """
         ntheta = self.surface.gamma().shape[1]
-        x = self.surface.gamma()[self.idx]
-        self.biotsavart.set_points(x)
- 
         A = self.biotsavart.A()
         dA_by_dX = self.biotsavart.dA_by_dX()
         dgammadash2 = self.surface.gammadash2()[self.idx,:]
@@ -122,10 +130,6 @@ class ToroidalFlux(object):
         """
         Calculate the second derivatives with respect to the surface coefficients
         """
-        x = self.surface.gamma()[self.idx]
-        self.biotsavart.set_points(x)
- 
-
         ntheta = self.surface.gamma().shape[1]
         dx_dc = self.surface.dgamma_by_dcoeff()[self.idx]
         dA_by_dX = self.biotsavart.dA_by_dX()

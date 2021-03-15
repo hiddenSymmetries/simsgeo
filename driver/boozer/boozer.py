@@ -1,4 +1,4 @@
-from simsgeo import CurveXYZFourier, RotatedCurve, BiotSavart, boozer_surface_residual, SurfaceRZFourier, CurveRZFourier
+from simsgeo import CurveXYZFourier, RotatedCurve, BiotSavart, boozer_surface_residual, ToroidalFlux, SurfaceRZFourier, CurveRZFourier
 import numpy as np
 from math import pi
 import ipdb
@@ -112,22 +112,17 @@ h = np.random.uniform(size=dofs.shape)
 r0, J0, Jiota = boozer_surface_residual(s, iota, bs)
 print(f"J0.shape={J0.shape}, Rank(J0)={np.linalg.matrix_rank(J0)}")
 
-# J = np.delete(J0, 2*J0.shape[1]//3, 1)
-# J = np.concatenate((J, Jiota), axis=1)
-# print("Rank(J)", np.linalg.matrix_rank(J))
 
-#print("Taylor test the residual")
-#Jex = J0@h
-#for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
-#    s.set_dofs(dofs + eps*h)
-#    r1, J1, _ = boozer_surface_residual(s, iota, bs)
-#    Jfd = (r1-r0)/eps
-#    print(np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex))
-#
+tflux = ToroidalFlux(s, bs)
+tflux.invalidate_cache()
+print(tflux.J())
+
+
+
+
 s.set_dofs(dofs)
 x = np.concatenate((s.get_dofs(), [iota]))
 area0 = s.surface_area()
-
 # Should actually enfore the surface area constraint exactly, but currently
 # just adding it as a penalty.
 def f(x):
@@ -140,15 +135,32 @@ def f(x):
     dval = np.sum(r[:, None]*J, axis=0) + (s.surface_area()-area0)*np.concatenate((s.dsurface_area_by_dcoeff(), [0.]))
     print(val, np.linalg.norm(dval))
     return val, dval
-
-s.set_dofs(x[:-1])
-xyz0 = s.gamma()
-bs.set_points(xyz0.reshape((nphi*ntheta, 3)))
-absB0 = np.linalg.norm(bs.B(), axis=1).reshape((nphi, ntheta))
-s.plot(scalars=absB0)
-
 from scipy.optimize import minimize
-res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 1000})
+res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 100})
+s.plot()
+
+tf = ToroidalFlux(s, bs)
+tf.invalidate_cache()
+tf0 = tf.J()
+
+def f(x):
+    sdofs = x[:-1]
+    iota = x[-1]
+    s.set_dofs(sdofs)
+
+    r, Js, Jiota = boozer_surface_residual(s, iota, bs)
+    J = np.concatenate((Js, Jiota), axis=1)
+    
+    tf.invalidate_cache()
+    val = 0.5 * np.sum(r**2) + 0.5 * 100* (tf.J()-tf0)**2
+    dval = np.sum(r[:, None]*J, axis=0) + 100 * (tf.J()-tf0)*np.concatenate((tf.dJ_by_dsurfacecoefficients(), [0.]))
+    print(val, np.linalg.norm(dval))
+    return val, dval
+
+
+x = np.concatenate((s.get_dofs(), [iota]))
+from scipy.optimize import minimize
+res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 100})
 
 s.set_dofs(res.x[:-1])
 xyz = s.gamma()

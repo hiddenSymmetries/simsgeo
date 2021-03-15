@@ -63,33 +63,24 @@ def taylor_test2(f, df, d2f, x, epsilons=None, direction1=None, direction2 = Non
 
 
 def get_surface(surfacetype, stellsym, phis=None, thetas=None):
-    mpol = 4
-    ntor = 3
-    nfp = 2
-    phis = phis if phis is not None else np.linspace(0, 1, 31, endpoint=False)
-    thetas = thetas if thetas is not None else np.linspace(0, 1, 31, endpoint=False)
-    if surfacetype == "SurfaceRZFourier":
-        from simsgeo import SurfaceRZFourier
-        s = SurfaceRZFourier(mpol, ntor, nfp, stellsym, phis, thetas)
-        s.rc[0, ntor + 0] = 1
-        s.rc[1, ntor + 0] = 0.3
-        s.zs[1, ntor + 0] = 0.3
-    elif surfacetype == "SurfaceXYZFourier":
-        from simsgeo import SurfaceXYZFourier
-        stellsym = False
-        s = SurfaceXYZFourier(mpol, ntor, nfp, stellsym, phis, thetas)
-        s.xc[0, ntor + 1] = 1.
-        s.xc[1, ntor + 1] = 0.1
-        s.ys[0, ntor + 1] = 1.
-        s.ys[1, ntor + 1] = 0.1
-        s.zs[1, ntor] = 0.1
-    else:
-        assert False
-
-    dofs = np.asarray(s.get_dofs())
-    np.random.seed(2)
-    rand_scale=0.01
-    s.set_dofs(dofs + rand_scale * np.random.rand(len(dofs)).reshape(dofs.shape))
+    mpol = 5
+    ntor = 5
+    
+    nfp = 1
+    stellsym = False
+    nphi = 30
+    ntheta = 30
+    
+    phis = np.linspace(0, 1, nphi, endpoint=False)
+    thetas = np.linspace(0, 1, ntheta, endpoint=False)
+    from simsgeo import SurfaceXYZFourier
+    s = SurfaceXYZFourier(mpol, ntor, nfp, stellsym, phis, thetas)
+    s.xc[0, ntor + 1] = 1.
+    s.xc[1, ntor + 1] = 0.1
+    s.ys[0, ntor + 1] = 1.
+    s.ys[1, ntor + 1] = 0.1
+    s.zs[1, ntor] = 0.1
+    
     return s
 
 class CoilCollection():
@@ -155,8 +146,33 @@ def get_ncsx_data(Nt_coils=25, Nt_ma=10, ppp=10):
 
 
 class Testing(unittest.TestCase):
+    def test_toroidal_flux1(self):
+        coils, currents, ma = get_ncsx_data()
+        stellarator = CoilCollection(coils, currents, 3, True)
+        bs = BiotSavart(stellarator.coils, stellarator.currents)
+        s = get_surface("SurfaceXYZFourier", False)
+        s.fit_to_curve(ma, 0.1)
+        
+        tf = ToroidalFlux(s, bs)
+        coeffs = s.get_dofs()
+        s.invalidate_cache()
+        
+        def f(dofs):
+            s.set_dofs(dofs)
+            tf.invalidate_cache()
+            return tf.J()
+        def df(dofs):
+            s.set_dofs(dofs)
+            tf.invalidate_cache()
+            return tf.dJ_by_dsurfacecoefficients() 
+        def d2f(dofs):
+            s.set_dofs(dofs)
+            tf.invalidate_cache()
+            return tf.d2J_by_dsurfacecoefficientsdsurfacecoefficients()
 
-    def test_toroidal_flux(self):
+        taylor_test1(f, df, coeffs)
+ 
+    def test_toroidal_flux2(self):
         coils, currents, ma = get_ncsx_data()
         stellarator = CoilCollection(coils, currents, 3, True)
         bs = BiotSavart(stellarator.coils, stellarator.currents)
@@ -166,35 +182,38 @@ class Testing(unittest.TestCase):
         tf = ToroidalFlux(s, bs)
         coeffs = s.get_dofs()
         s.invalidate_cache()
-
+        
         def f(dofs):
             s.set_dofs(dofs)
+            tf.invalidate_cache()
             return tf.J()
         def df(dofs):
             s.set_dofs(dofs)
+            tf.invalidate_cache()
             return tf.dJ_by_dsurfacecoefficients() 
         def d2f(dofs):
             s.set_dofs(dofs)
+            tf.invalidate_cache()
             return tf.d2J_by_dsurfacecoefficientsdsurfacecoefficients()
 
-        taylor_test1(f, df, coeffs)
         taylor_test2(f, df, d2f, coeffs) 
-    
-    def test_boozer(self):
+     
+    def test_boozer1(self):
         coils, currents, ma = get_ncsx_data()
         stellarator = CoilCollection(coils, currents, 3, True)
         bs = BiotSavart(stellarator.coils, stellarator.currents)
         s = get_surface("SurfaceXYZFourier", False)
         s.fit_to_curve(ma, 0.1)
         tf = ToroidalFlux(s, bs)
-        l0 = tf.J()
+        tf.invalidate_cache()
+        l0 = 0.1
 
         def f(x):
 
             sdofs = x[:-1]
             iota = x[-1]
             s.set_dofs(sdofs)
-            r, Js, Jiota, Hs, Hsiota, Hiota = boozer_surface_residual(s, iota, bs)
+            r, Js, Jiota, Hs, Hsiota, Hiota = boozer_surface_residual(s, iota, bs, derivatives = 2)
             J = np.concatenate((Js, Jiota), axis=1)
             Htemp = np.concatenate((Hs,Hsiota[...,None]),axis=2)
             col = np.concatenate( (Hsiota, Hiota), axis = 1)
@@ -203,6 +222,7 @@ class Testing(unittest.TestCase):
             dl  = np.zeros( x.shape )
             d2l = np.zeros( (x.shape[0], x.shape[0] ) )
 
+            tf.invalidate_cache()
             l            = tf.J()
             dl[:-1]      = tf.dJ_by_dsurfacecoefficients()
             d2l[:-1,:-1] = tf.d2J_by_dsurfacecoefficientsdsurfacecoefficients() 
@@ -221,7 +241,7 @@ class Testing(unittest.TestCase):
         iota = -0.3
         x = np.concatenate((s.get_dofs(), [iota]))
         f0, J0, H0 = f(x)
-        h = np.random.uniform(size=x.shape)
+        h = np.random.uniform(size=x.shape)-0.5
         Jex = J0@h
 
         err_old = 1e9
@@ -229,8 +249,68 @@ class Testing(unittest.TestCase):
             f1, J1, H1 = f(x + eps*h)
             Jfd = (f1-f0)/eps
             err = np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex)
-            assert err < err_old * 0.55
+            assert err < err_old * 0.15
             err_old = err
+
+
+    def test_boozer2(self):
+        coils, currents, ma = get_ncsx_data()
+        stellarator = CoilCollection(coils, currents, 3, True)
+        bs = BiotSavart(stellarator.coils, stellarator.currents)
+        s = get_surface("SurfaceXYZFourier", False)
+        s.fit_to_curve(ma, 0.1)
+        s.invalidate_cache
+
+
+        tf = ToroidalFlux(s, bs)
+        tf.invalidate_cache()
+        l0 = 0.1
+        
+        def f(x):
+            sdofs = x[:-1]
+            iota = x[-1]
+            s.set_dofs(sdofs)
+            r, Js, Jiota, Hs, Hsiota, Hiota = boozer_surface_residual(s, iota, bs, derivatives = 2)
+            J = np.concatenate((Js, Jiota), axis=1)
+            Htemp = np.concatenate((Hs,Hsiota[...,None]),axis=2)
+            col = np.concatenate( (Hsiota, Hiota), axis = 1)
+            H = np.concatenate( (Htemp,col[...,None,:]), axis = 1) 
+            
+
+            dl  = np.zeros( x.shape )
+            d2l = np.zeros( (x.shape[0], x.shape[0] ) )
+
+            tf.invalidate_cache()
+            l            = tf.J()
+            dl[:-1]      = tf.dJ_by_dsurfacecoefficients()
+            d2l[:-1,:-1] = tf.d2J_by_dsurfacecoefficientsdsurfacecoefficients() 
+
+            rl = (l-l0) 
+            r = np.concatenate( (r, [rl]) )
+            J = np.concatenate( (J, dl[None,:]),  axis = 0)
+            H = np.concatenate( (H, d2l[None,:,:]), axis = 0)
+
+            val = 0.5 * np.sum(r**2) 
+            dval = np.sum(r[:, None]*J, axis=0) 
+            d2val = J.T @ J + np.sum( r[:,None,None] * H, axis = 0) 
+            return val, dval, d2val
+
+        iota = -0.3
+        x = np.concatenate((s.get_dofs(), [iota]))
+        f0, J0, H0 = f(x)
+        h1 = np.random.uniform(size=x.shape)-0.5
+        h2 = np.random.uniform(size=x.shape)-0.5
+        d2f = h1@H0@h2
+
+        err_old = 1e9
+        for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
+            fp, Jp, Hp = f(x + eps*h1)
+            fm, Jm, Hm = f(x - eps*h1)
+            d2f_fd = (Jp@h2-Jm@h2)/(2*eps)
+            err = np.abs(d2f_fd-d2f)/np.abs(d2f)
+            assert err < err_old * 0.30
+            err_old = err
+
 
 
 if __name__ == "__main__":
