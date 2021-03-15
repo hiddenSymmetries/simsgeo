@@ -1,3 +1,5 @@
+# DEPRECATION WARNING: This repository has been deprecated. All functionality has been moved into the [SIMSOPT](https://github.com/hiddenSymmetries/simsopt/) package.
+
 # SIMSGEO
 
 ![build-and-test-status](https://github.com/hiddenSymmetries/simsgeo/workflows/Build%20&%20Test/badge.svg)
