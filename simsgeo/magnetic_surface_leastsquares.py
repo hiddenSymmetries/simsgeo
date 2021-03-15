@@ -24,7 +24,7 @@ def boozer_surface_residual(surface, iota, biotsavart):
     dB_by_dX    = biotsavart.dB_by_dX().reshape((nphi, ntheta, 3, 3))
     d2B_by_dXdX = biotsavart.d2B_by_dXdX().reshape((nphi,ntheta,3,3,3))
     B = biotsavart.B().reshape((nphi, ntheta, 3))
-
+    
     tang = xphi + iota * xtheta
     # G = np.sum(np.abs(biotsavart.coil_currents))
     G = 2. * np.pi * np.sum(np.abs(biotsavart.coil_currents)) * (4 * np.pi * 10**(-7) / (2 * np.pi))
@@ -41,28 +41,31 @@ def boozer_surface_residual(surface, iota, biotsavart):
         - (np.sum(B**2, axis=2)/G)[..., None, None] * (dxphi_dc + iota * dxtheta_dc)
     dresidual_diota = -(np.sum(B**2, axis=2)/G)[..., None] * xtheta
    
-#    ipdb.set_trace()
-#    d2B_dcdc = np.einsum('ijkpl,ijpn,ijkm->ijlmn', d2B_by_dXdX, dx_dc, dx_dc)
-#    dB2_dc = 2.* np.einsum('ijl,ijlm->ijm', B, dB_dc)
-#    
-#    term1 = np.einsum('ijlm,ijln->ijmn',dB_dc, dB_dc)
-#    term2 = np.einsum('ijlmn,ijl->ijmn',d2B_dcdc,B)
-#    d2B2_dcdc = 2*(term1 + term2) 
-#
-#    term1 = -(1/G) * ( dxphi_dc[...,None,:] - iota * dxtheta_dc[...,None,:] ) * dB2_dc[...,None,:,None]
-#    term2 = -(1/G) * ( dxphi_dc[...,:,None] - iota * dxtheta_dc[...,:,None] ) * dB2_dc[...,None,None,:]
-#    term3 = -(1/G) * (  xphi[...,None,None] - iota * xtheta[...,None,None]  ) * d2B2_dcdc[...,None,:,:]
-#    d2residual_by_dcdc = d2B_dcdc + term1 + term2 + term3
+    B2 = np.sum( B**2, axis = -1)
+    d2B_dcdc = np.einsum('ijkpl,ijpn,ijkm->ijlmn', d2B_by_dXdX, dx_dc, dx_dc)
+    dB2_dc = 2.* np.einsum('ijl,ijlm->ijm', B, dB_dc)
     
-    
+    term1 = np.einsum('ijlm,ijln->ijmn',dB_dc, dB_dc)
+    term2 = np.einsum('ijlmn,ijl->ijmn',d2B_dcdc,B)
+    d2B2_dcdc = 2*(term1 + term2) 
 
-
+    term1 = -(1/G) * ( dxphi_dc[...,None,:] - iota * dxtheta_dc[...,None,:] ) * dB2_dc[...,None,:,None]
+    term2 = -(1/G) * ( dxphi_dc[...,:,None] - iota * dxtheta_dc[...,:,None] ) * dB2_dc[...,None,None,:]
+    term3 = -(1/G) * (  xphi[...,None,None] - iota * xtheta[...,None,None]  ) * d2B2_dcdc[...,None,:,:]
+    d2residual_by_dcdc = d2B_dcdc + term1 + term2 + term3
+    d2residual_by_dcdiota = (1/G)*(dB2_dc[...,None,:] * xtheta[...,:,None] + B2[...,None,None] * dxtheta_dc)
+    d2residual_by_diotadiota = np.zeros( dresidual_diota.shape )
 
     residual_flattened = residual.reshape((nphi*ntheta*3, ))
     dresidual_dc_flattened = dresidual_dc.reshape((nphi*ntheta*3, dresidual_dc.shape[-1]))
     dresidual_diota_flattened = dresidual_diota.reshape((nphi*ntheta*3, 1))
+    d2residual_by_dcdc_flattened = d2residual_by_dcdc.reshape( (nphi*ntheta*3,dresidual_dc.shape[-1], dresidual_dc.shape[-1]))
+    d2residual_by_dcdiota_flattened = d2residual_by_dcdiota.reshape( (nphi*ntheta*3,dresidual_dc.shape[-1]) )
+    d2residual_by_diotadiota_flattened = d2residual_by_diotadiota.reshape( (nphi*ntheta*3,1))
 
-    return residual_flattened, dresidual_dc_flattened, dresidual_diota_flattened
+    return residual_flattened, \
+           dresidual_dc_flattened, dresidual_diota_flattened,\
+           d2residual_by_dcdc_flattened, d2residual_by_dcdiota_flattened, d2residual_by_diotadiota_flattened
 
 def minimum_flux_surface_residual(surface, iota, biotsavart):
     pass
@@ -93,6 +96,7 @@ class ToroidalFlux(object):
 
         tf = np.sum(A * xtheta)/ntheta
         return tf
+
 
     def dJ_by_dsurfacecoefficients(self):
         """
@@ -141,15 +145,3 @@ class ToroidalFlux(object):
 
 
 
-#        A = self.biotsavart.A()
-#        dA_by_dX = self.biotsavart.dA_by_dX()
-#        dX_by_dcoeff = self.surface.dgamma_by_dcoeff()[self.idx,:]
-#        dgammadash2 = self.surface.gammadash2()[self.idx,:]
-#        dgammadash2_by_dcoeff = self.surface.dgammadash2_by_dcoeff()[self.idx,:]
-        
-#        term1 = np.einsum('ijk,ijl,ik->l', dA_by_dX, dX_by_dcoeff, dgammadash2)
-#        term2 = np.einsum('ij,ijk->k', A, dgammadash2_by_dcoeff)
-#        term2 = np.sum( A[...,None] * dgammadash2_by_dcoeff, axis = (0,1) )
-
-
-        #dA_dc = np.einsum('jkl,jkm->jlm', dA_by_dX, dx_dc)

@@ -179,6 +179,58 @@ class Testing(unittest.TestCase):
 
         taylor_test1(f, df, coeffs)
         taylor_test2(f, df, d2f, coeffs) 
+    
+    def test_boozer(self):
+        coils, currents, ma = get_ncsx_data()
+        stellarator = CoilCollection(coils, currents, 3, True)
+        bs = BiotSavart(stellarator.coils, stellarator.currents)
+        s = get_surface("SurfaceXYZFourier", False)
+        s.fit_to_curve(ma, 0.1)
+        tf = ToroidalFlux(s, bs)
+        l0 = tf.J()
+
+        def f(x):
+
+            sdofs = x[:-1]
+            iota = x[-1]
+            s.set_dofs(sdofs)
+            r, Js, Jiota, Hs, Hsiota, Hiota = boozer_surface_residual(s, iota, bs)
+            J = np.concatenate((Js, Jiota), axis=1)
+            Htemp = np.concatenate((Hs,Hsiota[...,None]),axis=2)
+            col = np.concatenate( (Hsiota, Hiota), axis = 1)
+            H = np.concatenate( (Htemp,col[...,None,:]), axis = 1) 
+            
+            dl  = np.zeros( x.shape )
+            d2l = np.zeros( (x.shape[0], x.shape[0] ) )
+
+            l            = tf.J()
+            dl[:-1]      = tf.dJ_by_dsurfacecoefficients()
+            d2l[:-1,:-1] = tf.d2J_by_dsurfacecoefficientsdsurfacecoefficients() 
+
+            rl = l-l0
+
+            r = np.concatenate( (r, [rl]) )
+            J = np.concatenate( (J, dl[None,:]),  axis = 0)
+            H = np.concatenate( (H, d2l[None,:,:]), axis = 0)
+            
+            val = 0.5 * np.sum(r**2) 
+            dval = np.sum(r[:, None]*J, axis=0) 
+            d2val = J.T @ J + np.sum( r[:,None,None] * H, axis = 0) 
+            return val, dval, d2val
+
+        iota = -0.3
+        x = np.concatenate((s.get_dofs(), [iota]))
+        f0, J0, H0 = f(x)
+        h = np.random.uniform(size=x.shape)
+        Jex = J0@h
+
+        err_old = 1e9
+        for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
+            f1, J1, H1 = f(x + eps*h)
+            Jfd = (f1-f0)/eps
+            err = np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex)
+            assert err < err_old * 0.55
+            err_old = err
 
 
 if __name__ == "__main__":

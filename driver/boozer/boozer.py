@@ -157,9 +157,9 @@ absB = np.linalg.norm(bs.B(), axis=1).reshape((nphi, ntheta))
 s.plot(scalars=absB)
 
 
-tflux = ToroidalFlux(s, bs)
-print(tflux.J())
-print(tflux.dJ_by_dsurfacecoefficients())
+#tflux = ToroidalFlux(s, bs)
+#print(tflux.J())
+#print(tflux.dJ_by_dsurfacecoefficients())
 
 #for i in range(10):
 #    s.scale_surface(1.1)
