@@ -245,11 +245,13 @@ class Testing(unittest.TestCase):
         Jex = J0@h
 
         err_old = 1e9
-        for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
+        
+        for i in range(5, 10):
+            eps = 0.5**i
             f1, J1, H1 = f(x + eps*h)
             Jfd = (f1-f0)/eps
             err = np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex)
-            assert err < err_old * 0.15
+            assert err < err_old * 0.55
             err_old = err
 
 
@@ -303,7 +305,8 @@ class Testing(unittest.TestCase):
         d2f = h1@H0@h2
 
         err_old = 1e9
-        for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
+        for i in range(5, 10):
+            eps = 0.5**i
             fp, Jp, Hp = f(x + eps*h1)
             fm, Jm, Hm = f(x - eps*h1)
             d2f_fd = (Jp@h2-Jm@h2)/(2*eps)
