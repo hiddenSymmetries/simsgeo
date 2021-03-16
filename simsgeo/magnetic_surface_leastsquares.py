@@ -103,7 +103,7 @@ class ToroidalFlux(object):
     def J(self):
         xtheta = self.surface.gammadash2()[self.idx]
         ntheta = self.surface.gamma().shape[1]
-    
+        
         A = self.biotsavart.A()
         tf = np.sum(A * xtheta)/ntheta
         return tf

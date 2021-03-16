@@ -82,12 +82,6 @@ ntheta = 30
 phis = np.linspace(0, 1, nphi, endpoint=False)
 thetas = np.linspace(0, 1, ntheta, endpoint=False)
 from simsgeo import SurfaceXYZFourier
-# this is a donut with major radius 1 and minor radius 0.1 probably a terrible
-# initial guess and we should put a tube around the magnetic axis instead this
-# could be done by solving a least squares problem 
-# A^T A dofs = A^T b
-# where b are xyz coordinates of the tube around the axis, and A is 
-# surface.dgamma_by_dcoeff()
 s = SurfaceXYZFourier(mpol, ntor, nfp, stellsym, phis, thetas)
 s.xc[0, ntor + 1] = 1.
 s.xc[1, ntor + 1] = 0.1
@@ -97,51 +91,15 @@ s.zs[1, ntor] = 0.1
 
 s.fit_to_curve(ma, 0.1)
 
-
-
-M = s.dgamma_by_dcoeff()
-M = M.reshape((nphi*ntheta*3, M.shape[3]))
-print(np.linalg.matrix_rank(M))
-print(M.shape)
-
-
-
-dofs = s.get_dofs()
-eps = 1e-4
-h = np.random.uniform(size=dofs.shape)
-r0, J0, Jiota = boozer_surface_residual(s, iota, bs)
-print(f"J0.shape={J0.shape}, Rank(J0)={np.linalg.matrix_rank(J0)}")
-
-
-tflux = ToroidalFlux(s, bs)
-tflux.invalidate_cache()
-print(tflux.J())
-
-
-
-
-s.set_dofs(dofs)
-x = np.concatenate((s.get_dofs(), [iota]))
-area0 = s.surface_area()
-# Should actually enfore the surface area constraint exactly, but currently
-# just adding it as a penalty.
-def f(x):
-    sdofs = x[:-1]
-    iota = x[-1]
-    s.set_dofs(sdofs)
-    r, Js, Jiota = boozer_surface_residual(s, iota, bs)
-    J = np.concatenate((Js, Jiota), axis=1)
-    val = 0.5 * np.sum(r**2) + 0.5 * (s.surface_area()-area0)**2
-    dval = np.sum(r[:, None]*J, axis=0) + (s.surface_area()-area0)*np.concatenate((s.dsurface_area_by_dcoeff(), [0.]))
-    print(val, np.linalg.norm(dval))
-    return val, dval
-from scipy.optimize import minimize
-res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 100})
-s.plot()
-
 tf = ToroidalFlux(s, bs)
 tf.invalidate_cache()
-tf0 = tf.J()
+print(tf.J() )
+s.plot()
+
+
+tf0 = 0.075
+
+constraint_weight = 100
 
 def f(x):
     sdofs = x[:-1]
@@ -152,16 +110,15 @@ def f(x):
     J = np.concatenate((Js, Jiota), axis=1)
     
     tf.invalidate_cache()
-    val = 0.5 * np.sum(r**2) + 0.5 * 100* (tf.J()-tf0)**2
-    dval = np.sum(r[:, None]*J, axis=0) + 100 * (tf.J()-tf0)*np.concatenate((tf.dJ_by_dsurfacecoefficients(), [0.]))
+    val = 0.5 * np.sum(r**2) + 0.5 * constraint_weight *  (tf.J()-tf0)**2
+    dval = np.sum(r[:, None]*J, axis=0) +  constraint_weight *(tf.J()-tf0)*np.concatenate((tf.dJ_by_dsurfacecoefficients(), [0.]))
     print(val, np.linalg.norm(dval))
     return val, dval
 
 
 x = np.concatenate((s.get_dofs(), [iota]))
 from scipy.optimize import minimize
-res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 100})
-
+res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 500})
 s.set_dofs(res.x[:-1])
 xyz = s.gamma()
 bs.set_points(xyz.reshape((nphi*ntheta, 3)))
@@ -169,28 +126,48 @@ absB = np.linalg.norm(bs.B(), axis=1).reshape((nphi, ntheta))
 s.plot(scalars=absB)
 
 
-#tflux = ToroidalFlux(s, bs)
-#print(tflux.J())
-#print(tflux.dJ_by_dsurfacecoefficients())
 
-#for i in range(10):
-#    s.scale_surface(1.1)
-#    area0 = s.surface_area()
-#    res = minimize(f, x, jac=True, method='L-BFGS-B', options={'maxiter': 1000})
-#    s.plot(scalars=absB)
+# SCALARIZED CONSTRAINED OPTIMIZATION PROBLEM #
+def f(x):
+    sdofs = x[:-1]
+    iota = x[-1]
+    s.set_dofs(sdofs)
+    r, Js, Jiota, Hs, Hsiota, Hiota = boozer_surface_residual(s, iota, bs, derivatives = 2)
+    J = np.concatenate((Js, Jiota), axis=1)
+    Htemp = np.concatenate((Hs,Hsiota[...,None]),axis=2)
+    col = np.concatenate( (Hsiota, Hiota), axis = 1)
+    H = np.concatenate( (Htemp,col[...,None,:]), axis = 1) 
+    
+
+    dl  = np.zeros( x.shape )
+    d2l = np.zeros( (x.shape[0], x.shape[0] ) )
+
+    tf.invalidate_cache()
+    l            = tf.J()
+    dl[:-1]      = tf.dJ_by_dsurfacecoefficients()
+    d2l[:-1,:-1] = tf.d2J_by_dsurfacecoefficientsdsurfacecoefficients() 
+
+    rl = (l-tf0) 
+    r = np.concatenate( (r, [np.sqrt(constraint_weight) *rl]) )
+    J = np.concatenate( (J,  np.sqrt(constraint_weight) *dl[None,:]),  axis = 0)
+    H = np.concatenate( (H,  np.sqrt(constraint_weight) *d2l[None,:,:]), axis = 0)
+
+    val = 0.5 * np.sum(r**2) 
+    dval = np.sum(r[:, None]*J, axis=0) 
+    d2val = J.T @ J + np.sum( r[:,None,None] * H, axis = 0) 
+    return val, dval, d2val
+
+x = res.x
+for i in range(5):
+    val,dval,d2val = f(x)
+    dx = np.linalg.solve(d2val,dval)
+    x = x - dx
+    print(np.linalg.norm(dval) )
+
+tf.invalidate_cache()
+print(tf.J(), np.abs(tf.J()-tf0) )
+s.plot()
 
 
-#print('Taylor rest 0.5 * residual^2')
-#f0, J0 = f(x)
-#h = np.random.uniform(size=x.shape)
-#Jex = J0@h
-#for eps in [1e-3, 1e-4, 1e-5, 1e-6]:
-#    f1, J1 = f(x + eps*h)
-#    Jfd = (f1-f0)/eps
-#    print(np.linalg.norm(Jfd-Jex)/np.linalg.norm(Jex))
-
-
-# def g(x):
-#     return , 
-
+# CONSTRAINED OPTIMIZATION PROBLEM #
 
