@@ -94,11 +94,10 @@ s.fit_to_curve(ma, 0.1)
 tf = ToroidalFlux(s, bs)
 tf.invalidate_cache()
 print(tf.J() )
-s.plot()
+#s.plot()
 
 
 tf0 = 0.075
-
 constraint_weight = 100
 
 def f(x):
@@ -123,7 +122,7 @@ s.set_dofs(res.x[:-1])
 xyz = s.gamma()
 bs.set_points(xyz.reshape((nphi*ntheta, 3)))
 absB = np.linalg.norm(bs.B(), axis=1).reshape((nphi, ntheta))
-s.plot(scalars=absB)
+#s.plot(scalars=absB)
 
 
 
@@ -158,16 +157,64 @@ def f(x):
     return val, dval, d2val
 
 x = res.x
-for i in range(5):
+for i in range(10):
     val,dval,d2val = f(x)
     dx = np.linalg.solve(d2val,dval)
     x = x - dx
     print(np.linalg.norm(dval) )
 
+s.set_dofs(res.x[:-1])
 tf.invalidate_cache()
 print(tf.J(), np.abs(tf.J()-tf0) )
-s.plot()
-
+#s.plot()
 
 # CONSTRAINED OPTIMIZATION PROBLEM #
+# \nabla L = 0
+# \nabla f - \lambda \nabla g = 0
+# g = 0
+def f(xl):
+    sdofs = xl[:-2]
+    iota = xl[-2]
+    lm = xl[-1]
+    s.set_dofs(sdofs)
+    r, Js, Jiota, Hs, Hsiota, Hiota = boozer_surface_residual(s, iota, bs, derivatives = 2)
+    J = np.concatenate((Js, Jiota), axis=1)
+    Htemp = np.concatenate((Hs,Hsiota[...,None]),axis=2)
+    col = np.concatenate( (Hsiota, Hiota), axis = 1)
+    H = np.concatenate( (Htemp,col[...,None,:]), axis = 1) 
+ 
+    dl  = np.zeros( (xl.shape[0]-1,) )
+    d2l = np.zeros( (xl.shape[0]-1, xl.shape[0]-1 ) )
+
+    tf.invalidate_cache()
+    l            = tf.J()
+    dl[:-1]      = tf.dJ_by_dsurfacecoefficients()
+    d2l[:-1,:-1] = tf.d2J_by_dsurfacecoefficientsdsurfacecoefficients() 
+    g = [l-tf0]
+
+    res = np.zeros( xl.shape )
+    res[:-1] = np.sum(r[:, None]*J, axis=0) - lm * dl 
+    res[-1]  = g[0]
+    
+    dres = np.zeros( (xl.shape[0], xl.shape[0]) )
+    dres[:-1,:-1] = J.T @ J + np.sum( r[:,None,None] * H, axis = 0) - lm*d2l
+    dres[:-1, -1] = -dl
+    dres[ -1,:-1] =  dl
+    
+    return res,dres
+
+xl = np.concatenate( (x, [0.]) )
+for i in range(10):
+    val,dval = f(xl)
+    dx = np.linalg.solve(dval,val)
+    xl = xl - dx
+    print(np.linalg.norm(val) )
+
+tf.invalidate_cache()
+print(tf.J(), np.abs(tf.J()-tf0) )
+#s.plot()
+
+
+
+
 
